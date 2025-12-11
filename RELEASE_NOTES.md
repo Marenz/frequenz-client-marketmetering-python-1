@@ -7,7 +7,12 @@ Initial release of the Frequenz Market Metering API client for Python.
 ## New Features
 
 - `MarketMeteringApiClient`: Main client class for connecting to the Market Metering service
-- `stream_samples()`: Async iterator for streaming metering samples from Market Locations
+- `upsert_samples()`: Bidirectional streaming for upserting metering samples.
+- `create_market_location()`: Create a new Market Location.
+- `update_market_location()`: Update an existing Market Location.
+- `activate_market_location()`: Activate a Market Location.
+- `deactivate_market_location()`: Deactivate a Market Location.
+- `list_market_locations()`: List Market Locations with filtering and pagination.
 - `stream()`: Channel-based receiver for streaming with automatic reconnection
 - CLI tool (`marketmetering-cli`) for quick access to metering data
 - Support for multiple market identifier types:
