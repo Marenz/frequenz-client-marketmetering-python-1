@@ -40,22 +40,22 @@ class MarketArea(Enum):
 class MarketLocationIdType(Enum):
     """Type of external market identifier."""
 
-    UNSPECIFIED = pb.OFFICIAL_MARKET_LOCATION_ID_TYPE_UNSPECIFIED
+    UNSPECIFIED = pb.MARKET_LOCATION_ID_TYPE_UNSPECIFIED
     """Unspecified identifier type."""
 
-    MALO_ID = pb.OFFICIAL_MARKET_LOCATION_ID_TYPE_MALO_ID
+    MALO_ID = pb.MARKET_LOCATION_ID_TYPE_MALO_ID
     """Germany – Marktlokations-ID (MaLo-ID)."""
 
-    MPAN = pb.OFFICIAL_MARKET_LOCATION_ID_TYPE_MPAN
+    MPAN = pb.MARKET_LOCATION_ID_TYPE_MPAN
     """United Kingdom – Meter Point Administration Number."""
 
-    ESI_ID = pb.OFFICIAL_MARKET_LOCATION_ID_TYPE_ESI_ID
+    ESI_ID = pb.MARKET_LOCATION_ID_TYPE_ESI_ID
     """United States – Electric Service Identifier (ESI ID)."""
 
-    NMI = pb.OFFICIAL_MARKET_LOCATION_ID_TYPE_NMI
+    NMI = pb.MARKET_LOCATION_ID_TYPE_NMI
     """Australia – National Metering Identifier."""
 
-    OTHER = pb.OFFICIAL_MARKET_LOCATION_ID_TYPE_OTHER
+    OTHER = pb.MARKET_LOCATION_ID_TYPE_OTHER
     """Generic meter identifier for markets not modeled explicitly."""
 
 
