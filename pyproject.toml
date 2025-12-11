@@ -84,7 +84,7 @@ dev-mypy = [
   # For checking the noxfile, docs/ script, and tests
   "frequenz-client-marketmetering[cli,dev-mkdocs,dev-noxfile,dev-pytest]",
   "grpc-stubs == 1.53.0.6",
-  "types-protobuf == 6.32.1.20250918",
+  "types-protobuf == 6.32.1.20251210",
 ]
 dev-noxfile = ["nox == 2025.10.16", "frequenz-repo-config[lib] == 0.13.8"]
 dev-pylint = [
