@@ -201,7 +201,7 @@ class MarketMeteringApiClient(
         """
         # Build the request
         request = pb.ReceiveMarketLocationSamplesStreamRequest(
-            market_location_list=[ml.to_protobuf() for ml in market_locations],
+            market_location_refs=[ml.to_protobuf() for ml in market_locations],
             directions=[d.value for d in directions],
             metric_types=[mt.value for mt in metric_types],
         )
@@ -314,7 +314,7 @@ class MarketMeteringApiClient(
         if broadcaster is None:
             # Build the request
             request = pb.ReceiveMarketLocationSamplesStreamRequest(
-                market_location_list=[ml.to_protobuf() for ml in market_locations],
+                market_location_refs=[ml.to_protobuf() for ml in market_locations],
                 directions=[d.value for d in directions],
                 metric_types=[mt.value for mt in metric_types],
             )
