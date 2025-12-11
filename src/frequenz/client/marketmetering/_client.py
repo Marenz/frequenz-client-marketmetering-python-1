@@ -29,12 +29,10 @@ from .types import (
     MarketLocationsFilter,
     MarketLocationUpdate,
     MetricType,
-    MetricUnit,
     PaginationParams,
     ResamplingOptions,
     RevisionSelection,
     UpsertResult,
-    MarketLocationSample,
 )
 
 DEFAULT_PORT = 443
@@ -159,16 +157,9 @@ class MarketMeteringApiClient(
     @property
     def stub(self) -> marketmetering_pb2_grpc.MarketMeteringServiceStub:
         """The stub for the service."""
-        # If we have an injected mock stub (for testing), return it directly
-        if self._stub is not None:
-            return self._stub  # type: ignore
-
-        if self._channel is None:
+        if self._channel is None or self._stub is None:
             raise ClientNotConnected(server_url=self.server_url, operation="stub")
-        # This type: ignore is needed because we need to cast the sync stub to
-        # the async stub, but we can't use cast because the async stub doesn't
-        # actually exist to the eyes of the interpreter.
-        return self._stub  # type: ignore
+        return self._stub
 
     async def create_market_location(
         self,
@@ -186,7 +177,7 @@ class MarketMeteringApiClient(
             market_location_ref=market_location_ref.to_protobuf(),
             market_location=market_location.to_protobuf(),
         )
-        await self.stub.CreateMarketLocation(
+        await self.stub.CreateMarketLocation(  # type: ignore[misc]
             request,
             timeout=self._call_timeout_seconds,
         )
@@ -209,7 +200,7 @@ class MarketMeteringApiClient(
             update_fields=update_pb,
             update_mask=update_mask_pb,
         )
-        await self.stub.UpdateMarketLocation(
+        await self.stub.UpdateMarketLocation(  # type: ignore[misc]
             request,
             timeout=self._call_timeout_seconds,
         )
@@ -227,7 +218,7 @@ class MarketMeteringApiClient(
         request = pb.ActivateMarketLocationRequest(
             market_location_refs=[market_location_ref.to_protobuf()],
         )
-        await self.stub.ActivateMarketLocation(
+        await self.stub.ActivateMarketLocation(  # type: ignore[misc]
             request,
             timeout=self._call_timeout_seconds,
         )
@@ -245,7 +236,7 @@ class MarketMeteringApiClient(
         request = pb.DeactivateMarketLocationRequest(
             market_location_refs=[market_location_ref.to_protobuf()],
         )
-        await self.stub.DeactivateMarketLocation(
+        await self.stub.DeactivateMarketLocation(  # type: ignore[misc]
             request,
             timeout=self._call_timeout_seconds,
         )
@@ -280,7 +271,7 @@ class MarketMeteringApiClient(
                 pagination_params.to_protobuf() if pagination_params else None
             ),
         )
-        response = await self.stub.ListMarketLocations(
+        response = await self.stub.ListMarketLocations(  # type: ignore[misc]
             request,
             timeout=self._call_timeout_seconds,
         )
@@ -311,9 +302,9 @@ class MarketMeteringApiClient(
             UpsertResult objects indicating success or failure for each sample.
         """
 
-        async def request_generator() -> AsyncIterator[
-            pb.UpsertMarketLocationSamplesStreamRequest
-        ]:
+        async def request_generator() -> (
+            AsyncIterator[pb.UpsertMarketLocationSamplesStreamRequest]
+        ):
             async for ml_ref, series in samples_stream:
                 for sample in series.samples:
                     yield pb.UpsertMarketLocationSamplesStreamRequest(
@@ -327,7 +318,7 @@ class MarketMeteringApiClient(
         response_stream = cast(
             AsyncIterator[pb.UpsertMarketLocationSamplesStreamResponse],
             self.stub.UpsertMarketLocationSamplesStream(
-                request_generator(),
+                request_generator(),  # type: ignore[arg-type]
                 timeout=self._stream_timeout_seconds,
             ),
         )

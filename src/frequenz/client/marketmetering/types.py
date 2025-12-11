@@ -12,8 +12,7 @@ from frequenz.api.common.v1alpha8.pagination import (
     pagination_params_pb2 as pagination_params_pb,
 )
 from frequenz.api.marketmetering.v1alpha1 import marketmetering_pb2 as pb
-from google.protobuf import struct_pb2
-from google.protobuf import field_mask_pb2
+from google.protobuf import field_mask_pb2, struct_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
 
 
@@ -265,11 +264,11 @@ class DataQuality(Enum):
     MISSING = pb.DATA_QUALITY_MISSING
     """No valid value is available for this interval."""
 
-    def to_protobuf(self) -> pb.DataQuality:
+    def to_protobuf(self) -> int:
         """Convert to protobuf message.
 
         Returns:
-            The protobuf representation.
+            The protobuf representation (integer enum value).
         """
         return self.value
 
@@ -373,13 +372,7 @@ class MarketLocation:
                 EnergyFlowDirection(d) for d in pb_obj.supported_directions
             ],
             time_resolution=TimeResolution(pb_obj.time_resolution),
-            payload={
-                k: v
-                for k, v in pb_obj.payload.items()
-                # Struct values are converted to native Python types automatically
-                # by the protobuf library when accessing them via items(), but
-                # we want to ensure we have a clean dict.
-            },
+            payload=dict(pb_obj.payload.items()),
         )
 
     def to_protobuf(self) -> pb.MarketLocation:
@@ -691,11 +684,13 @@ class MarketLocationSample:
             # Here we assume it's always present or defaults to 0.
             revision=pb_obj.revision,
             update_time=update_time,
-            resampling_method=ResamplingMethod(pb_obj.resampling_method)
-            if isinstance(pb_obj, pb.MarketLocationSampleDetail)
-            # Fallback to UNSPECIFIED if it's a simple MarketLocationSample
-            # which does not have this field.
-            else ResamplingMethod.UNSPECIFIED,
+            resampling_method=(
+                ResamplingMethod(pb_obj.resampling_method)
+                if isinstance(pb_obj, pb.MarketLocationSampleDetail)
+                # Fallback to UNSPECIFIED if it's a simple MarketLocationSample
+                # which does not have this field.
+                else ResamplingMethod.UNSPECIFIED
+            ),
         )
 
     def to_protobuf(self) -> pb.MarketLocationSample:
@@ -704,12 +699,14 @@ class MarketLocationSample:
         Returns:
             The protobuf representation.
         """
-        return pb.MarketLocationSample(
+        sample = pb.MarketLocationSample(
             sample_time=_datetime_to_timestamp(self.sample_time),
             value=self.value,
             quality=self.quality.value,
-            revision=self.revision,
         )
+        if self.revision is not None:
+            sample.revision = self.revision
+        return sample
 
 
 @dataclass(frozen=True)
