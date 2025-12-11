@@ -1,17 +1,20 @@
-# Frequenz Client Marketmetering Library Release Notes
+# Frequenz Market Metering Client Release Notes
 
 ## Summary
 
-<!-- Here goes a general summary of what this release is about -->
-
-## Upgrading
-
-<!-- Here goes notes on how to upgrade from previous versions, including deprecations and what they should be replaced with -->
+Initial release of the Frequenz Market Metering API client for Python.
 
 ## New Features
 
-<!-- Here goes the main new features and examples or instructions on how to use them -->
-
-## Bug Fixes
-
-<!-- Here goes notable bug fixes that are worth a special mention or explanation -->
+- `MarketMeteringApiClient`: Main client class for connecting to the Market Metering service
+- `stream_samples()`: Async iterator for streaming metering samples from Market Locations
+- `stream()`: Channel-based receiver for streaming with automatic reconnection
+- CLI tool (`marketmetering-cli`) for quick access to metering data
+- Support for multiple market identifier types:
+  - MaLo-ID (Germany)
+  - MPAN (United Kingdom)
+  - ESI-ID (US ERCOT)
+  - NMI (Australia)
+- Filtering by energy flow direction (IMPORT/EXPORT)
+- Multiple metric types (active energy, active power, reactive energy/power)
+- Optional resampling for time-series aggregation
