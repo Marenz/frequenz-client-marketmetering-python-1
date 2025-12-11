@@ -6,24 +6,22 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import AsyncIterator, Awaitable, cast
+from typing import AsyncIterator, cast
 
 from frequenz.api.common.v1alpha8.types.interval_pb2 import Interval as PBInterval
 from frequenz.api.marketmetering.v1alpha1 import marketmetering_pb2 as pb
 from frequenz.api.marketmetering.v1alpha1 import marketmetering_pb2_grpc
+from google.protobuf.timestamp_pb2 import Timestamp
+
+from frequenz import channels
 from frequenz.client.base.channel import ChannelOptions, SslOptions
 from frequenz.client.base.client import BaseApiClient
 from frequenz.client.base.exception import ClientNotConnected
 from frequenz.client.base.retry import LinearBackoff
 from frequenz.client.base.streaming import GrpcStreamBroadcaster
-from google.protobuf.timestamp_pb2 import Timestamp
-
-from frequenz import channels
 
 from .types import (
     EnergyFlowDirection,
-    MarketLocationId,
-    MarketLocationIdType,
     MarketLocationRef,
     MarketLocationSeries,
     MetricType,
@@ -92,6 +90,7 @@ class MarketMeteringApiClient(
         ```
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         *,
@@ -114,7 +113,7 @@ class MarketMeteringApiClient(
         """
         super().__init__(
             server_url,
-            marketmetering_pb2_grpc.MarketMeteringServiceStub,
+            marketmetering_pb2_grpc.MarketMeteringServiceStub,  # type: ignore[arg-type]
             connect=connect,
             channel_defaults=ChannelOptions(
                 port=DEFAULT_PORT,
@@ -158,6 +157,7 @@ class MarketMeteringApiClient(
         # actually exist to the eyes of the interpreter.
         return self._stub  # type: ignore
 
+    # pylint: disable=too-many-arguments
     async def stream_samples(
         self,
         *,
@@ -237,6 +237,7 @@ class MarketMeteringApiClient(
             for series_pb in response.series:
                 yield MarketLocationSeries.from_protobuf(series_pb)
 
+    # pylint: disable=too-many-arguments
     def stream(
         self,
         *,
@@ -284,6 +285,7 @@ class MarketMeteringApiClient(
             resampling=resampling,
         ).new_receiver()
 
+    # pylint: disable=too-many-arguments
     def _get_stream(
         self,
         *,

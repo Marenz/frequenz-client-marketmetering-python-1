@@ -3,20 +3,16 @@
 
 """Tests for the Market Metering client."""
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from datetime import timedelta
 
 from frequenz.client.marketmetering.types import (
     DataQuality,
+    DownsamplingMethod,
     EnergyFlowDirection,
     MarketArea,
     MarketLocationId,
     MarketLocationIdType,
     MarketLocationRef,
-    MarketLocationSample,
-    MarketLocationSeries,
     MetricType,
     MetricUnit,
     ResamplingMethod,
@@ -42,8 +38,6 @@ class TestTypes:
 
     def test_time_resolution_to_timedelta(self) -> None:
         """Test TimeResolution.to_timedelta."""
-        from datetime import timedelta
-
         assert TimeResolution.MIN_15.to_timedelta() == timedelta(minutes=15)
         assert TimeResolution.MIN_60.to_timedelta() == timedelta(hours=1)
         assert TimeResolution.DAY_1.to_timedelta() == timedelta(days=1)
@@ -115,8 +109,6 @@ class TestResamplingOptions:
         """Test default ResamplingOptions."""
         options = ResamplingOptions()
         assert options.resolution is None
-        from frequenz.client.marketmetering.types import DownsamplingMethod
-
         assert options.downsampling_method == DownsamplingMethod.MEAN
 
     def test_resampling_options_with_resolution(self) -> None:

@@ -5,6 +5,7 @@
 
 import asyncio
 import os
+import shlex
 from datetime import datetime, timezone
 from pprint import pformat
 from typing import Any
@@ -52,7 +53,8 @@ def print_series(series: MarketLocationSeries, raw: bool = False) -> None:
     )
     click.echo(f"  {click.style('Direction:', fg='cyan')} {series.direction.name}")
     click.echo(
-        f"  {click.style('Metric:', fg='cyan')} {series.metric_type.name} [{series.metric_unit.name}]"
+        f"  {click.style('Metric:', fg='cyan')} "
+        f"{series.metric_type.name} [{series.metric_unit.name}]"
     )
     click.echo(f"  {click.style('Resolution:', fg='cyan')} {series.resolution.name}")
 
@@ -168,20 +170,20 @@ def parse_market_location(value: str) -> MarketLocationRef:
 
     try:
         enterprise_id = int(parts[0])
-    except ValueError:
-        raise click.BadParameter(f"Invalid enterprise_id: {parts[0]}")
+    except ValueError as exc:
+        raise click.BadParameter(f"Invalid enterprise_id: {parts[0]}") from exc
 
     location_id = parts[1]
 
     try:
         id_type = MarketLocationIdType[parts[2].upper()]
-    except KeyError:
+    except KeyError as exc:
         valid_types = ", ".join(
             t.name for t in MarketLocationIdType if t.name != "UNSPECIFIED"
         )
         raise click.BadParameter(
             f"Invalid location type: {parts[2]}. Valid types: {valid_types}"
-        )
+        ) from exc
 
     return MarketLocationRef(
         enterprise_id=enterprise_id,
@@ -245,6 +247,7 @@ class MarketLocationParamType(click.ParamType):
     type=click.Choice([r.name for r in TimeResolution if r.name != "UNSPECIFIED"]),
     help="Resampling resolution",
 )
+# pylint: disable=too-many-arguments,too-many-positional-arguments
 async def stream_cmd(
     ctx: click.Context,
     market_locations: tuple[MarketLocationRef, ...],
@@ -262,6 +265,15 @@ async def stream_cmd(
         42:DE01234567890:MALO_ID
 
     Valid types: MALO_ID, MPAN, ESI_ID, NMI, OTHER
+
+    Args:
+        ctx: Click context with client and options.
+        market_locations: Market location references to stream.
+        direction: Energy flow directions (IMPORT/EXPORT).
+        metric: Metric types to request.
+        start_time: Optional start time for historical data.
+        end_time: Optional end time.
+        resolution: Optional resampling resolution.
     """
     client: MarketMeteringApiClient = ctx.obj["client"]
     raw: bool = ctx.obj["raw"]
@@ -325,8 +337,6 @@ async def interactive_mode(url: str, auth_key: str, sign_secret: str | None) -> 
     completer = NestedCompleter.from_nested_dict(
         {command: None for command in user_commands}
     )
-
-    import shlex
 
     while True:
         with patch_stdout():

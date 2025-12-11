@@ -8,9 +8,8 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Self
 
-from google.protobuf.timestamp_pb2 import Timestamp
-
 from frequenz.api.marketmetering.v1alpha1 import marketmetering_pb2 as pb
+from google.protobuf.timestamp_pb2 import Timestamp
 
 
 class MarketArea(Enum):
@@ -446,7 +445,7 @@ class ResamplingOptions:
             The protobuf representation.
         """
         return pb.ResamplingOptions(
-            resolution=self.resolution.value if self.resolution else 0,
+            resolution=self.resolution.value if self.resolution else 0,  # type: ignore[arg-type]
             downsampling_method=self.downsampling_method.value,
         )
 
