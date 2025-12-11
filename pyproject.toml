@@ -75,7 +75,7 @@ dev-mkdocs = [
   "frequenz-api-marketmetering @ git+https://github.com/frequenz-floss/frequenz-api-market-metering.git@v0.x.x",
   "mkdocs-macros-plugin == 1.4.1",
   "mkdocs-material == 9.6.23",
-  "mkdocstrings[python] == 0.30.1",
+  "mkdocstrings[python] == 1.0.0",
   "frequenz-repo-config[lib] == 0.13.8",
 ]
 dev-mypy = [
