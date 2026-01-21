@@ -22,10 +22,17 @@ from frequenz.client.base.streaming import GrpcStreamBroadcaster
 
 from .types import (
     EnergyFlowDirection,
+    MarketLocation,
+    MarketLocationEntry,
     MarketLocationRef,
     MarketLocationSeries,
+    MarketLocationsFilter,
+    MarketLocationUpdate,
     MetricType,
+    PaginationParams,
     ResamplingOptions,
+    RevisionSelection,
+    UpsertResult,
 )
 
 DEFAULT_PORT = 443
@@ -148,14 +155,176 @@ class MarketMeteringApiClient(
         return timedelta(seconds=self._stream_timeout_seconds)
 
     @property
-    def stub(self) -> marketmetering_pb2_grpc.MarketMeteringServiceAsyncStub:
+    def stub(self) -> marketmetering_pb2_grpc.MarketMeteringServiceStub:
         """The stub for the service."""
         if self._channel is None or self._stub is None:
             raise ClientNotConnected(server_url=self.server_url, operation="stub")
-        # This type: ignore is needed because we need to cast the sync stub to
-        # the async stub, but we can't use cast because the async stub doesn't
-        # actually exist to the eyes of the interpreter.
-        return self._stub  # type: ignore
+        return self._stub
+
+    async def create_market_location(
+        self,
+        *,
+        market_location_ref: MarketLocationRef,
+        market_location: MarketLocation,
+    ) -> None:
+        """Create a new Market Location.
+
+        Args:
+            market_location_ref: The reference ID for the new location.
+            market_location: The configuration of the new location.
+        """
+        request = pb.CreateMarketLocationRequest(
+            market_location_ref=market_location_ref.to_protobuf(),
+            market_location=market_location.to_protobuf(),
+        )
+        await self.stub.CreateMarketLocation(  # type: ignore[misc]
+            request,
+            timeout=self._call_timeout_seconds,
+        )
+
+    async def update_market_location(
+        self,
+        *,
+        market_location_ref: MarketLocationRef,
+        update: MarketLocationUpdate,
+    ) -> None:
+        """Update an existing Market Location.
+
+        Args:
+            market_location_ref: The reference ID of the location to update.
+            update: The fields to update.
+        """
+        update_pb, update_mask_pb = update.to_protobuf()
+        request = pb.UpdateMarketLocationRequest(
+            market_location_ref=market_location_ref.to_protobuf(),
+            update_fields=update_pb,
+            update_mask=update_mask_pb,
+        )
+        await self.stub.UpdateMarketLocation(  # type: ignore[misc]
+            request,
+            timeout=self._call_timeout_seconds,
+        )
+
+    async def activate_market_location(
+        self,
+        *,
+        market_location_ref: MarketLocationRef,
+    ) -> None:
+        """Activate a Market Location.
+
+        Args:
+            market_location_ref: The reference ID of the location to activate.
+        """
+        request = pb.ActivateMarketLocationRequest(
+            market_location_refs=[market_location_ref.to_protobuf()],
+        )
+        await self.stub.ActivateMarketLocation(  # type: ignore[misc]
+            request,
+            timeout=self._call_timeout_seconds,
+        )
+
+    async def deactivate_market_location(
+        self,
+        *,
+        market_location_ref: MarketLocationRef,
+    ) -> None:
+        """Deactivate a Market Location.
+
+        Args:
+            market_location_ref: The reference ID of the location to deactivate.
+        """
+        request = pb.DeactivateMarketLocationRequest(
+            market_location_refs=[market_location_ref.to_protobuf()],
+        )
+        await self.stub.DeactivateMarketLocation(  # type: ignore[misc]
+            request,
+            timeout=self._call_timeout_seconds,
+        )
+
+    async def list_market_locations(
+        self,
+        *,
+        enterprise_id: int,
+        filters: MarketLocationsFilter | None = None,
+        revision_selection: RevisionSelection | None = None,
+        pagination_params: PaginationParams | None = None,
+    ) -> tuple[list[MarketLocationEntry], PaginationParams | None]:
+        """List Market Locations.
+
+        Args:
+            enterprise_id: Filter by enterprise ID.
+            filters: Optional filters for the query.
+            revision_selection: Optional revision selection criteria.
+            pagination_params: Optional pagination parameters.
+
+        Returns:
+            A tuple containing a list of Market Location entries and optional
+            pagination parameters for the next page.
+        """
+        request = pb.ListMarketLocationsRequest(
+            enterprise_id=enterprise_id,
+            filter=filters.to_protobuf() if filters else None,
+            revision_selection=(
+                revision_selection.to_protobuf() if revision_selection else None
+            ),
+            pagination_params=(
+                pagination_params.to_protobuf() if pagination_params else None
+            ),
+        )
+        response = await self.stub.ListMarketLocations(  # type: ignore[misc]
+            request,
+            timeout=self._call_timeout_seconds,
+        )
+
+        market_locations = [
+            MarketLocationEntry.from_protobuf(ml) for ml in response.market_locations
+        ]
+
+        next_page_params = None
+        if response.HasField("pagination_info"):
+            next_page_params = PaginationParams(
+                page_token=response.pagination_info.next_page_token
+            )
+
+        return market_locations, next_page_params
+
+    async def upsert_samples(
+        self,
+        samples_stream: AsyncIterator[tuple[MarketLocationRef, MarketLocationSeries]],
+    ) -> AsyncIterator[UpsertResult]:
+        """Upsert a stream of metering samples.
+
+        Args:
+            samples_stream: An async iterator yielding (MarketLocationRef, MarketLocationSeries)
+                tuples. Each series should contain exactly one sample.
+
+        Yields:
+            UpsertResult objects indicating success or failure for each sample.
+        """
+
+        async def request_generator() -> (
+            AsyncIterator[pb.UpsertMarketLocationSamplesStreamRequest]
+        ):
+            async for ml_ref, series in samples_stream:
+                for sample in series.samples:
+                    yield pb.UpsertMarketLocationSamplesStreamRequest(
+                        market_location_ref=ml_ref.to_protobuf(),
+                        direction=series.direction.value,
+                        metric_type=series.metric_type.value,
+                        metric_unit=series.metric_unit.value,
+                        sample=sample.to_protobuf(),
+                    )
+
+        response_stream = cast(
+            AsyncIterator[pb.UpsertMarketLocationSamplesStreamResponse],
+            self.stub.UpsertMarketLocationSamplesStream(
+                request_generator(),  # type: ignore[arg-type]
+                timeout=self._stream_timeout_seconds,
+            ),
+        )
+
+        async for response in response_stream:
+            yield UpsertResult.from_protobuf(response)
 
     # pylint: disable=too-many-arguments
     async def stream_samples(
