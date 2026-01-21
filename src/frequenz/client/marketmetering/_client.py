@@ -120,7 +120,7 @@ class MarketMeteringApiClient(
         """
         super().__init__(
             server_url,
-            marketmetering_pb2_grpc.MarketMeteringServiceStub,  # type: ignore[arg-type]
+            marketmetering_pb2_grpc.MarketMeteringServiceStub,
             connect=connect,
             channel_defaults=ChannelOptions(
                 port=DEFAULT_PORT,
