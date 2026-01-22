@@ -17,25 +17,86 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 
 class MarketArea(Enum):
-    """Market area enum representing the jurisdiction."""
+    """Market area enum representing the jurisdiction.
+
+    Market areas are organized by geographical region:
+    - EU_*: Europe
+    - NA_*: North America
+    - AP_*: Asia-Pacific
+    - OC_*: Oceania
+    - EURASIA_*: Eurasia
+    """
 
     UNSPECIFIED = pb.MARKET_AREA_UNSPECIFIED
     """Unspecified market area."""
 
-    DE = pb.MARKET_AREA_DE
+    # Europe
+    EU_DE = pb.MARKET_AREA_EU_DE
     """Germany (Marktlokation / MaLo)."""
 
-    UK = pb.MARKET_AREA_UK
+    EU_UK = pb.MARKET_AREA_EU_UK
     """United Kingdom (MPAN)."""
 
-    IT = pb.MARKET_AREA_IT
+    EU_IT = pb.MARKET_AREA_EU_IT
     """Italy (POD)."""
 
-    AU = pb.MARKET_AREA_AU
+    EU_FR = pb.MARKET_AREA_EU_FR
+    """France."""
+
+    EU_ES = pb.MARKET_AREA_EU_ES
+    """Spain (CUPS)."""
+
+    EU_NL = pb.MARKET_AREA_EU_NL
+    """Netherlands (EAN)."""
+
+    EU_BE = pb.MARKET_AREA_EU_BE
+    """Belgium (EAN)."""
+
+    EU_CH = pb.MARKET_AREA_EU_CH
+    """Switzerland."""
+
+    EU_AT = pb.MARKET_AREA_EU_AT
+    """Austria."""
+
+    EU_NORDICS = pb.MARKET_AREA_EU_NORDICS
+    """Nordic countries (Denmark, Finland, Norway, Sweden)."""
+
+    # North America
+    NA_US_ERCOT = pb.MARKET_AREA_NA_US_ERCOT
+    """US - ERCOT region (ESI ID)."""
+
+    NA_US_PJM = pb.MARKET_AREA_NA_US_PJM
+    """US - PJM Interconnection."""
+
+    NA_US_ISONE = pb.MARKET_AREA_NA_US_ISONE
+    """US - ISO New England."""
+
+    NA_US_CAISO = pb.MARKET_AREA_NA_US_CAISO
+    """US - California ISO."""
+
+    # Asia-Pacific
+    AP_JP = pb.MARKET_AREA_AP_JP
+    """Japan."""
+
+    AP_CN = pb.MARKET_AREA_AP_CN
+    """China."""
+
+    AP_IN = pb.MARKET_AREA_AP_IN
+    """India."""
+
+    AP_SG = pb.MARKET_AREA_AP_SG
+    """Singapore."""
+
+    # Oceania
+    OC_AU = pb.MARKET_AREA_OC_AU
     """Australia (NMI)."""
 
-    US_ERCOT = pb.MARKET_AREA_US_ERCOT
-    """US - ERCOT region (ESI ID)."""
+    OC_NZ = pb.MARKET_AREA_OC_NZ
+    """New Zealand (ICP)."""
+
+    # Eurasia
+    EURASIA_RU = pb.MARKET_AREA_EURASIA_RU
+    """Russia."""
 
     OTHER = pb.MARKET_AREA_OTHER
     """Other or not yet modelled areas."""
@@ -58,6 +119,18 @@ class MarketLocationIdType(Enum):
 
     NMI = pb.MARKET_LOCATION_ID_TYPE_NMI
     """Australia – National Metering Identifier."""
+
+    POD = pb.MARKET_LOCATION_ID_TYPE_POD
+    """Italy – Punto di Prelievo (Point of Delivery)."""
+
+    EAN = pb.MARKET_LOCATION_ID_TYPE_EAN
+    """European Article Number (used in Netherlands, Belgium, etc.)."""
+
+    CUPS = pb.MARKET_LOCATION_ID_TYPE_CUPS
+    """Spain – Código Unificado de Punto de Suministro."""
+
+    ICP = pb.MARKET_LOCATION_ID_TYPE_ICP
+    """New Zealand – Installation Control Point."""
 
     OTHER = pb.MARKET_LOCATION_ID_TYPE_OTHER
     """Generic meter identifier for markets not modeled explicitly."""
@@ -336,6 +409,22 @@ class DownsamplingMethod(Enum):
     """Arithmetic mean of all samples within the interval."""
 
 
+class ActivationFilter(Enum):
+    """Filter for Market Location activation status."""
+
+    UNSPECIFIED = pb.ACTIVATION_FILTER_UNSPECIFIED
+    """Unspecified filter (defaults to ONLY_ACTIVE)."""
+
+    ONLY_ACTIVE = pb.ACTIVATION_FILTER_ONLY_ACTIVE
+    """Return only active Market Locations."""
+
+    ONLY_INACTIVE = pb.ACTIVATION_FILTER_ONLY_INACTIVE
+    """Return only inactive Market Locations."""
+
+    ALL = pb.ACTIVATION_FILTER_ALL
+    """Return all Market Locations regardless of activation status."""
+
+
 @dataclass(frozen=True)
 class MarketLocation:
     """A Market Location with its configuration."""
@@ -528,8 +617,8 @@ class MarketLocationsFilter:
     market_location_id_filters: Iterable[MarketLocationId] = field(default_factory=list)
     """Filter by specific Market Location IDs."""
 
-    include_inactive: bool = False
-    """Whether to include inactive Market Locations in the result."""
+    activation_filter: ActivationFilter = ActivationFilter.ONLY_ACTIVE
+    """Filter by activation status (defaults to only active locations)."""
 
     def to_protobuf(self) -> pb.MarketLocationsFilter:
         """Convert to protobuf message.
@@ -541,7 +630,7 @@ class MarketLocationsFilter:
             market_location_id_filters=[
                 ml_id.to_protobuf() for ml_id in self.market_location_id_filters
             ],
-            include_inactive=self.include_inactive,
+            activation_filter=self.activation_filter.value,
         )
 
 
@@ -818,6 +907,7 @@ class UpsertResult:
 
 
 __all__ = [
+    "ActivationFilter",
     "DataQuality",
     "DownsamplingMethod",
     "EnergyFlowDirection",
