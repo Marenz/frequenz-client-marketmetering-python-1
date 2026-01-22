@@ -379,7 +379,7 @@ class MarketMeteringApiClient(
         stream_filter = pb.MarketLocationSamplesStreamFilter()
 
         if start_time or end_time:
-            time_filter = pb.MarketLocationTimeFilter()
+            time_filter = pb.TimeFilter()
             interval = PBInterval()
             if start_time:
                 interval.start_time.CopyFrom(_datetime_to_timestamp(start_time))
@@ -491,7 +491,7 @@ class MarketMeteringApiClient(
             # Add stream filter
             stream_filter = pb.MarketLocationSamplesStreamFilter()
             if start_time or end_time:
-                time_filter = pb.MarketLocationTimeFilter()
+                time_filter = pb.TimeFilter()
                 interval = PBInterval()
                 if start_time:
                     interval.start_time.CopyFrom(_datetime_to_timestamp(start_time))

@@ -26,9 +26,9 @@ class TestTypes:
 
     def test_market_area_enum(self) -> None:
         """Test MarketArea enum values."""
-        assert MarketArea.DE.name == "DE"
-        assert MarketArea.UK.name == "UK"
-        assert MarketArea.US_ERCOT.name == "US_ERCOT"
+        assert MarketArea.EU_DE.name == "EU_DE"
+        assert MarketArea.EU_UK.name == "EU_UK"
+        assert MarketArea.NA_US_ERCOT.name == "NA_US_ERCOT"
 
     def test_market_location_id_type_enum(self) -> None:
         """Test MarketLocationIdType enum values."""
