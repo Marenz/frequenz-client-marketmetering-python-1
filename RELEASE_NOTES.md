@@ -17,9 +17,17 @@ Initial release of the Frequenz Market Metering API client for Python.
 - CLI tool (`marketmetering-cli`) for quick access to metering data
 - Support for multiple market identifier types:
   - MaLo-ID (Germany)
+  - Zählpunkt (Austria)
   - MPAN (United Kingdom)
-  - ESI-ID (US ERCOT)
+  - POD (Italy)
+  - CUPS (Spain)
+  - PRM (France)
+  - EAN (Continental Europe)
+  - GSRN (Nordic countries)
+  - ESI-ID (United States)
   - NMI (Australia)
+  - ICP (New Zealand)
+  - SPN (Japan)
 - Filtering by energy flow direction (IMPORT/EXPORT)
 - Multiple metric types (active energy, active power, reactive energy/power)
 - Optional resampling for time-series aggregation
