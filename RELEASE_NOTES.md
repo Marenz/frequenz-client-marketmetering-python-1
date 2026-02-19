@@ -23,3 +23,7 @@ Initial release of the Frequenz Market Metering API client for Python.
 - Filtering by energy flow direction (IMPORT/EXPORT)
 - Multiple metric types (active energy, active power, reactive energy/power)
 - Optional resampling for time-series aggregation
+
+## Bug Fixes
+
+- `update_market_location()`: Add missing `expected_revision` parameter required for optimistic concurrency control.
