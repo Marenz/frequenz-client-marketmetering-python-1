@@ -187,16 +187,22 @@ class MarketMeteringApiClient(
         *,
         market_location_ref: MarketLocationRef,
         update: MarketLocationUpdate,
+        expected_revision: int,
     ) -> None:
         """Update an existing Market Location.
 
         Args:
             market_location_ref: The reference ID of the location to update.
             update: The fields to update.
+            expected_revision: The revision the caller expects to be the
+                latest. This prevents lost updates when multiple callers
+                modify the same Market Location concurrently. Pass the
+                revision from the most recent read of the location.
         """
         update_pb, update_mask_pb = update.to_protobuf()
         request = pb.UpdateMarketLocationRequest(
             market_location_ref=market_location_ref.to_protobuf(),
+            expected_revision=expected_revision,
             update_fields=update_pb,
             update_mask=update_mask_pb,
         )
