@@ -111,8 +111,26 @@ class MarketLocationIdType(Enum):
     MALO_ID = pb.MARKET_LOCATION_ID_TYPE_MALO_ID
     """Germany – Marktlokations-ID (MaLo-ID)."""
 
+    ZAEHLPUNKT = pb.MARKET_LOCATION_ID_TYPE_ZAEHLPUNKT
+    """Austria – Zählpunktbezeichnung."""
+
     MPAN = pb.MARKET_LOCATION_ID_TYPE_MPAN
     """United Kingdom – Meter Point Administration Number."""
+
+    POD = pb.MARKET_LOCATION_ID_TYPE_POD
+    """Italy – Punto di Prelievo (Point of Delivery)."""
+
+    CUPS = pb.MARKET_LOCATION_ID_TYPE_CUPS
+    """Spain – Código Unificado de Punto de Suministro."""
+
+    PRM = pb.MARKET_LOCATION_ID_TYPE_PRM
+    """France – Point de Référence et Mesure (PRM)."""
+
+    EAN = pb.MARKET_LOCATION_ID_TYPE_EAN
+    """European Article Number (used in Netherlands, Belgium, etc.)."""
+
+    GSRN = pb.MARKET_LOCATION_ID_TYPE_GSRN
+    """Nordic countries – GS1 Global Service Relation Number."""
 
     ESI_ID = pb.MARKET_LOCATION_ID_TYPE_ESI_ID
     """United States – Electric Service Identifier (ESI ID)."""
@@ -120,17 +138,11 @@ class MarketLocationIdType(Enum):
     NMI = pb.MARKET_LOCATION_ID_TYPE_NMI
     """Australia – National Metering Identifier."""
 
-    POD = pb.MARKET_LOCATION_ID_TYPE_POD
-    """Italy – Punto di Prelievo (Point of Delivery)."""
-
-    EAN = pb.MARKET_LOCATION_ID_TYPE_EAN
-    """European Article Number (used in Netherlands, Belgium, etc.)."""
-
-    CUPS = pb.MARKET_LOCATION_ID_TYPE_CUPS
-    """Spain – Código Unificado de Punto de Suministro."""
-
     ICP = pb.MARKET_LOCATION_ID_TYPE_ICP
     """New Zealand – Installation Control Point."""
+
+    SPN = pb.MARKET_LOCATION_ID_TYPE_SPN
+    """Japan – Supply Point Number."""
 
     OTHER = pb.MARKET_LOCATION_ID_TYPE_OTHER
     """Generic meter identifier for markets not modeled explicitly."""
