@@ -36,6 +36,11 @@ Initial release of the Frequenz Market Metering API client for Python.
 - Multiple metric types (active energy, active power, reactive energy/power)
 - Optional resampling for time-series aggregation
 
+## Improvements
+
+- Add mock tests for all client RPC methods.
+- Add integration tests (excluded from CI, run with `uv run pytest -m integration`).
+
 ## Breaking Changes
 
 - `activate_market_location()` renamed to `activate_market_locations()` (batch support, returns results).

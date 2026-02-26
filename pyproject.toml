@@ -178,11 +178,14 @@ filterwarnings = [
   # chars as this is a regex
   'ignore:Protobuf gencode version .*exactly one major version older.*:UserWarning',
 ]
-addopts = "-vv"
+addopts = "-vv -m 'not integration'"
 testpaths = ["tests", "src"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 required_plugins = ["pytest-asyncio", "pytest-mock"]
+markers = [
+  "integration: requires a running marketmetering service (deselected by default)",
+]
 
 [tool.mypy]
 explicit_package_bases = true
