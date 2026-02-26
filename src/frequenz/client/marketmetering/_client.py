@@ -11,7 +11,6 @@ from typing import AsyncIterator, cast
 from frequenz.api.common.v1alpha8.types.interval_pb2 import Interval as PBInterval
 from frequenz.api.marketmetering.v1alpha1 import marketmetering_pb2 as pb
 from frequenz.api.marketmetering.v1alpha1 import marketmetering_pb2_grpc
-from google.protobuf.timestamp_pb2 import Timestamp
 
 from frequenz import channels
 from frequenz.client.base.channel import ChannelOptions, SslOptions
@@ -23,7 +22,9 @@ from frequenz.client.base.streaming import GrpcStreamBroadcaster
 from .types import (
     EnergyFlowDirection,
     MarketLocation,
+    MarketLocationDetail,
     MarketLocationEntry,
+    MarketLocationOperationResult,
     MarketLocationRef,
     MarketLocationSeries,
     MarketLocationsFilter,
@@ -32,24 +33,12 @@ from .types import (
     PaginationParams,
     ResamplingOptions,
     RevisionSelection,
+    RevisionStrategy,
     UpsertResult,
+    _datetime_to_timestamp,
 )
 
 DEFAULT_PORT = 443
-
-
-def _datetime_to_timestamp(dt: datetime) -> Timestamp:
-    """Convert a datetime to a protobuf Timestamp.
-
-    Args:
-        dt: The datetime to convert.
-
-    Returns:
-        The protobuf timestamp representation.
-    """
-    ts = Timestamp()
-    ts.FromDatetime(dt)
-    return ts
 
 
 class MarketMeteringApiClient(
@@ -166,21 +155,25 @@ class MarketMeteringApiClient(
         *,
         market_location_ref: MarketLocationRef,
         market_location: MarketLocation,
-    ) -> None:
+    ) -> MarketLocationDetail:
         """Create a new Market Location.
 
         Args:
             market_location_ref: The reference ID for the new location.
             market_location: The configuration of the new location.
+
+        Returns:
+            The created Market Location with server-assigned metadata.
         """
         request = pb.CreateMarketLocationRequest(
             market_location_ref=market_location_ref.to_protobuf(),
             market_location=market_location.to_protobuf(),
         )
-        await self.stub.CreateMarketLocation(  # type: ignore[misc]
+        response = await self.stub.CreateMarketLocation(  # type: ignore[misc]
             request,
             timeout=self._call_timeout_seconds,
         )
+        return MarketLocationDetail.from_protobuf(response.market_location)
 
     async def update_market_location(
         self,
@@ -188,7 +181,7 @@ class MarketMeteringApiClient(
         market_location_ref: MarketLocationRef,
         update: MarketLocationUpdate,
         expected_revision: int,
-    ) -> None:
+    ) -> MarketLocationDetail:
         """Update an existing Market Location.
 
         Args:
@@ -198,6 +191,9 @@ class MarketMeteringApiClient(
                 latest. This prevents lost updates when multiple callers
                 modify the same Market Location concurrently. Pass the
                 revision from the most recent read of the location.
+
+        Returns:
+            The updated Market Location with server-assigned metadata.
         """
         update_pb, update_mask_pb = update.to_protobuf()
         request = pb.UpdateMarketLocationRequest(
@@ -206,46 +202,59 @@ class MarketMeteringApiClient(
             update_fields=update_pb,
             update_mask=update_mask_pb,
         )
-        await self.stub.UpdateMarketLocation(  # type: ignore[misc]
+        response = await self.stub.UpdateMarketLocation(  # type: ignore[misc]
             request,
             timeout=self._call_timeout_seconds,
         )
+        return MarketLocationDetail.from_protobuf(response.market_location_detail)
 
-    async def activate_market_location(
+    async def activate_market_locations(
         self,
         *,
-        market_location_ref: MarketLocationRef,
-    ) -> None:
-        """Activate a Market Location.
+        market_location_refs: list[MarketLocationRef],
+    ) -> list[MarketLocationOperationResult]:
+        """Activate one or more Market Locations.
 
         Args:
-            market_location_ref: The reference ID of the location to activate.
+            market_location_refs: References to the locations to activate.
+
+        Returns:
+            A list of operation results, one per requested location.
         """
         request = pb.ActivateMarketLocationRequest(
-            market_location_refs=[market_location_ref.to_protobuf()],
+            market_location_refs=[ref.to_protobuf() for ref in market_location_refs],
         )
-        await self.stub.ActivateMarketLocation(  # type: ignore[misc]
+        response = await self.stub.ActivateMarketLocation(  # type: ignore[misc]
             request,
             timeout=self._call_timeout_seconds,
         )
+        return [
+            MarketLocationOperationResult.from_protobuf(r) for r in response.results
+        ]
 
-    async def deactivate_market_location(
+    async def deactivate_market_locations(
         self,
         *,
-        market_location_ref: MarketLocationRef,
-    ) -> None:
-        """Deactivate a Market Location.
+        market_location_refs: list[MarketLocationRef],
+    ) -> list[MarketLocationOperationResult]:
+        """Deactivate one or more Market Locations.
 
         Args:
-            market_location_ref: The reference ID of the location to deactivate.
+            market_location_refs: References to the locations to deactivate.
+
+        Returns:
+            A list of operation results, one per requested location.
         """
         request = pb.DeactivateMarketLocationRequest(
-            market_location_refs=[market_location_ref.to_protobuf()],
+            market_location_refs=[ref.to_protobuf() for ref in market_location_refs],
         )
-        await self.stub.DeactivateMarketLocation(  # type: ignore[misc]
+        response = await self.stub.DeactivateMarketLocation(  # type: ignore[misc]
             request,
             timeout=self._call_timeout_seconds,
         )
+        return [
+            MarketLocationOperationResult.from_protobuf(r) for r in response.results
+        ]
 
     async def list_market_locations(
         self,
@@ -342,6 +351,7 @@ class MarketMeteringApiClient(
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         resampling: ResamplingOptions | None = None,
+        revision_strategy: RevisionStrategy | None = None,
     ) -> AsyncIterator[MarketLocationSeries]:
         """Stream metering samples for Market Locations.
 
@@ -357,6 +367,7 @@ class MarketMeteringApiClient(
                 If omitted, stream starts from real-time data.
             end_time: Optional end time. If omitted, stream continues in real-time.
             resampling: Optional resampling options for aggregation.
+            revision_strategy: Optional revision strategy for the stream filter.
 
         Yields:
             MarketLocationSeries objects containing samples for each combination
@@ -397,6 +408,9 @@ class MarketMeteringApiClient(
         if resampling:
             stream_filter.resampling_options.CopyFrom(resampling.to_protobuf())
 
+        if revision_strategy:
+            stream_filter.revision_strategy = revision_strategy.value
+
         request.stream_filter.CopyFrom(stream_filter)
 
         # Make the streaming call
@@ -422,6 +436,7 @@ class MarketMeteringApiClient(
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         resampling: ResamplingOptions | None = None,
+        revision_strategy: RevisionStrategy | None = None,
     ) -> channels.Receiver[MarketLocationSeries]:
         """Get a receiver for streaming metering samples.
 
@@ -436,6 +451,7 @@ class MarketMeteringApiClient(
             start_time: Optional start time for historical data.
             end_time: Optional end time. If omitted, stream continues in real-time.
             resampling: Optional resampling options for aggregation.
+            revision_strategy: Optional revision strategy for the stream filter.
 
         Returns:
             A channel receiver for MarketLocationSeries objects.
@@ -458,6 +474,7 @@ class MarketMeteringApiClient(
             start_time=start_time,
             end_time=end_time,
             resampling=resampling,
+            revision_strategy=revision_strategy,
         ).new_receiver()
 
     # pylint: disable=too-many-arguments
@@ -470,6 +487,7 @@ class MarketMeteringApiClient(
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         resampling: ResamplingOptions | None = None,
+        revision_strategy: RevisionStrategy | None = None,
     ) -> GrpcStreamBroadcaster[
         pb.ReceiveMarketLocationSamplesStreamResponse, MarketLocationSeries
     ]:
@@ -508,6 +526,9 @@ class MarketMeteringApiClient(
 
             if resampling:
                 stream_filter.resampling_options.CopyFrom(resampling.to_protobuf())
+
+            if revision_strategy:
+                stream_filter.revision_strategy = revision_strategy.value
 
             request.stream_filter.CopyFrom(stream_filter)
 
