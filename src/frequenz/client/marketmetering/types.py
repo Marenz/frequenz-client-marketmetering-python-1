@@ -3,6 +3,8 @@
 
 """Type definitions for the Market Metering API client."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -496,10 +498,13 @@ class MarketLocation:
 
 @dataclass(frozen=True)
 class MarketLocationEntry:
-    """A Market Location with its context (Enterprise ID)."""
+    """A Market Location with its context (Enterprise ID and ref)."""
 
     enterprise_id: int
     """Enterprise ID owning this Market Location."""
+
+    market_location_ref: MarketLocationRef
+    """Reference (enterprise + market-standard ID) for this location."""
 
     market_location: MarketLocation
     """The Market Location details."""
@@ -516,13 +521,11 @@ class MarketLocationEntry:
         Returns:
             A new MarketLocationEntry instance.
         """
-        # The API returns a MarketLocationDetail inside the entry, which contains
-        # metadata + the core MarketLocation. For now, we extract just the
-        # core MarketLocation part to match our client model.
-        # If we need the metadata (revision, is_active, etc.) later, we should
-        # update our MarketLocation model or create a new one.
         return cls(
             enterprise_id=pb_obj.enterprise_id,
+            market_location_ref=MarketLocationRef.from_protobuf(
+                pb_obj.market_location.market_location_ref
+            ),
             market_location=MarketLocation.from_protobuf(
                 pb_obj.market_location.market_location
             ),
