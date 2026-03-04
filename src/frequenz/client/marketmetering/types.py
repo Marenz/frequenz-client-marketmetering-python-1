@@ -3,6 +3,8 @@
 
 """Type definitions for the Market Metering API client."""
 
+# pylint: disable=too-many-lines
+
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -437,6 +439,139 @@ class ActivationFilter(Enum):
     """Return all Market Locations regardless of activation status."""
 
 
+class MarketLocationOperationErrorCode(Enum):
+    """Error codes for Market Location activate/deactivate operations."""
+
+    UNSPECIFIED = pb.MARKET_LOCATION_OPERATION_ERROR_CODE_UNSPECIFIED
+    """Unspecified error."""
+
+    NOT_FOUND = pb.MARKET_LOCATION_OPERATION_ERROR_CODE_NOT_FOUND
+    """The Market Location was not found."""
+
+    ALREADY_IN_TARGET_STATE = (
+        pb.MARKET_LOCATION_OPERATION_ERROR_CODE_ALREADY_IN_TARGET_STATE
+    )
+    """The Market Location is already in the requested state."""
+
+    ENTERPRISE_MISMATCH = pb.MARKET_LOCATION_OPERATION_ERROR_CODE_ENTERPRISE_MISMATCH
+    """The enterprise ID does not match the Market Location's owner."""
+
+    PERMISSION_DENIED = pb.MARKET_LOCATION_OPERATION_ERROR_CODE_PERMISSION_DENIED
+    """The caller does not have permission for this operation."""
+
+    OPERATION_REJECTED = pb.MARKET_LOCATION_OPERATION_ERROR_CODE_OPERATION_REJECTED
+    """The operation was rejected by the server."""
+
+    UNKNOWN_ERROR = pb.MARKET_LOCATION_OPERATION_ERROR_CODE_UNKNOWN_ERROR
+    """Unknown error."""
+
+
+def _timestamp_to_datetime(ts: Timestamp) -> datetime:
+    """Convert a protobuf Timestamp to a datetime.
+
+    Args:
+        ts: The protobuf timestamp.
+
+    Returns:
+        The datetime representation in UTC.
+    """
+    return ts.ToDatetime()
+
+
+def _datetime_to_timestamp(dt: datetime) -> Timestamp:
+    """Convert a datetime to a protobuf Timestamp.
+
+    Args:
+        dt: The datetime to convert.
+
+    Returns:
+        The protobuf timestamp representation.
+    """
+    ts = Timestamp()
+    ts.FromDatetime(dt)
+    return ts
+
+
+@dataclass(frozen=True)
+class MarketLocationId:
+    """Market-standard identifier describing a Market Location.
+
+    A Market Location is a jurisdiction-specific point of metering used for
+    regulatory processes such as settlement, billing, supplier switching, etc.
+    """
+
+    value: str
+    """Opaque identifier in its original market format."""
+
+    type: MarketLocationIdType
+    """Type of official market identifier."""
+
+    @classmethod
+    def from_protobuf(cls, pb_obj: pb.MarketLocationId) -> Self:
+        """Create from protobuf message.
+
+        Args:
+            pb_obj: The protobuf message.
+
+        Returns:
+            A new MarketLocationId instance.
+        """
+        return cls(
+            value=pb_obj.value,
+            type=MarketLocationIdType(pb_obj.type),
+        )
+
+    def to_protobuf(self) -> pb.MarketLocationId:
+        """Convert to protobuf message.
+
+        Returns:
+            The protobuf representation.
+        """
+        return pb.MarketLocationId(
+            value=self.value,
+            type=self.type.value,
+        )
+
+
+@dataclass(frozen=True)
+class MarketLocationRef:
+    """Reference to a Market Location within a specific enterprise."""
+
+    enterprise_id: int
+    """Unique enterprise ID for this Market Location."""
+
+    market_location_id: MarketLocationId
+    """Market-wide identifier (MaLo, MPAN, ESI-ID, NMI, ...)."""
+
+    @classmethod
+    def from_protobuf(cls, pb_obj: pb.MarketLocationRef) -> Self:
+        """Create from protobuf message.
+
+        Args:
+            pb_obj: The protobuf message.
+
+        Returns:
+            A new MarketLocationRef instance.
+        """
+        return cls(
+            enterprise_id=pb_obj.enterprise_id,
+            market_location_id=MarketLocationId.from_protobuf(
+                pb_obj.market_location_id
+            ),
+        )
+
+    def to_protobuf(self) -> pb.MarketLocationRef:
+        """Convert to protobuf message.
+
+        Returns:
+            The protobuf representation.
+        """
+        return pb.MarketLocationRef(
+            enterprise_id=self.enterprise_id,
+            market_location_id=self.market_location_id.to_protobuf(),
+        )
+
+
 @dataclass(frozen=True)
 class MarketLocation:
     """A Market Location with its configuration."""
@@ -495,14 +630,132 @@ class MarketLocation:
 
 
 @dataclass(frozen=True)
+class MarketLocationDetail:
+    """A Market Location with server-managed metadata.
+
+    This includes the core `MarketLocation` configuration plus
+    server-assigned fields such as revision, activation status,
+    and timestamps.
+    """
+
+    market_location_ref: MarketLocationRef
+    """Reference to this Market Location."""
+
+    market_location: MarketLocation
+    """The core Market Location configuration."""
+
+    revision: int
+    """Server-managed revision number (monotonically increasing)."""
+
+    is_active: bool
+    """Whether the Market Location is currently active."""
+
+    create_time: datetime
+    """Timestamp when the Market Location was created."""
+
+    update_time: datetime
+    """Timestamp of the last update to this Market Location."""
+
+    last_deactivated_time: datetime | None
+    """Timestamp when the Market Location was last deactivated, if ever."""
+
+    @classmethod
+    def from_protobuf(cls, pb_obj: pb.MarketLocationDetail) -> Self:
+        """Create from protobuf message.
+
+        Args:
+            pb_obj: The protobuf message.
+
+        Returns:
+            A new MarketLocationDetail instance.
+        """
+        last_deactivated = None
+        if pb_obj.HasField("last_deactivated_time"):
+            last_deactivated = _timestamp_to_datetime(pb_obj.last_deactivated_time)
+
+        return cls(
+            market_location_ref=MarketLocationRef.from_protobuf(
+                pb_obj.market_location_ref
+            ),
+            market_location=MarketLocation.from_protobuf(pb_obj.market_location),
+            revision=pb_obj.revision,
+            is_active=pb_obj.is_active,
+            create_time=_timestamp_to_datetime(pb_obj.create_time),
+            update_time=_timestamp_to_datetime(pb_obj.update_time),
+            last_deactivated_time=last_deactivated,
+        )
+
+
+@dataclass(frozen=True)
+class MarketLocationOperationResult:
+    """Result of an activate or deactivate operation on a Market Location."""
+
+    market_location_ref: MarketLocationRef
+    """Reference to the Market Location."""
+
+    success: bool
+    """Whether the operation succeeded."""
+
+    update_time: datetime | None
+    """Timestamp of the operation, if successful."""
+
+    error_code: MarketLocationOperationErrorCode
+    """Error code if the operation failed."""
+
+    error_message: str | None
+    """Error message if the operation failed."""
+
+    revision: int
+    """Server-managed revision after the operation."""
+
+    @classmethod
+    def from_protobuf(cls, pb_obj: pb.MarketLocationOperationResult) -> Self:
+        """Create from protobuf message.
+
+        Args:
+            pb_obj: The protobuf message.
+
+        Returns:
+            A new MarketLocationOperationResult instance.
+        """
+        update_time = None
+        if pb_obj.HasField("update_time"):
+            update_time = _timestamp_to_datetime(pb_obj.update_time)
+
+        return cls(
+            market_location_ref=MarketLocationRef.from_protobuf(
+                pb_obj.market_location_ref
+            ),
+            success=pb_obj.success,
+            update_time=update_time,
+            error_code=MarketLocationOperationErrorCode(pb_obj.error_code),
+            error_message=pb_obj.error_message if pb_obj.error_message else None,
+            revision=pb_obj.revision,
+        )
+
+
+@dataclass(frozen=True)
 class MarketLocationEntry:
-    """A Market Location with its context (Enterprise ID)."""
+    """A Market Location entry as returned by list operations.
+
+    Wraps a `MarketLocationDetail` together with the owning enterprise ID.
+    """
 
     enterprise_id: int
     """Enterprise ID owning this Market Location."""
 
-    market_location: MarketLocation
-    """The Market Location details."""
+    market_location_detail: MarketLocationDetail
+    """Full Market Location details including metadata."""
+
+    @property
+    def market_location_ref(self) -> MarketLocationRef:
+        """Reference to this Market Location."""
+        return self.market_location_detail.market_location_ref
+
+    @property
+    def market_location(self) -> MarketLocation:
+        """The core Market Location configuration (convenience accessor)."""
+        return self.market_location_detail.market_location
 
     @classmethod
     def from_protobuf(
@@ -516,15 +769,10 @@ class MarketLocationEntry:
         Returns:
             A new MarketLocationEntry instance.
         """
-        # The API returns a MarketLocationDetail inside the entry, which contains
-        # metadata + the core MarketLocation. For now, we extract just the
-        # core MarketLocation part to match our client model.
-        # If we need the metadata (revision, is_active, etc.) later, we should
-        # update our MarketLocation model or create a new one.
         return cls(
             enterprise_id=pb_obj.enterprise_id,
-            market_location=MarketLocation.from_protobuf(
-                pb_obj.market_location.market_location
+            market_location_detail=MarketLocationDetail.from_protobuf(
+                pb_obj.market_location
             ),
         )
 
@@ -582,47 +830,6 @@ class MarketLocationUpdate:
 
 
 @dataclass(frozen=True)
-class MarketLocationId:
-    """Market-standard identifier describing a Market Location.
-
-    A Market Location is a jurisdiction-specific point of metering used for
-    regulatory processes such as settlement, billing, supplier switching, etc.
-    """
-
-    value: str
-    """Opaque identifier in its original market format."""
-
-    type: MarketLocationIdType
-    """Type of official market identifier."""
-
-    @classmethod
-    def from_protobuf(cls, pb_obj: pb.MarketLocationId) -> Self:
-        """Create from protobuf message.
-
-        Args:
-            pb_obj: The protobuf message.
-
-        Returns:
-            A new MarketLocationId instance.
-        """
-        return cls(
-            value=pb_obj.value,
-            type=MarketLocationIdType(pb_obj.type),
-        )
-
-    def to_protobuf(self) -> pb.MarketLocationId:
-        """Convert to protobuf message.
-
-        Returns:
-            The protobuf representation.
-        """
-        return pb.MarketLocationId(
-            value=self.value,
-            type=self.type.value,
-        )
-
-
-@dataclass(frozen=True)
 class MarketLocationsFilter:
     """Filter criteria for listing Market Locations."""
 
@@ -666,71 +873,6 @@ class RevisionSelection:
             revision_strategy=self.revision_strategy.value,
             changed_fields=[f.value for f in self.changed_fields],
         )
-
-
-@dataclass(frozen=True)
-class MarketLocationRef:
-    """Reference to a Market Location within a specific enterprise."""
-
-    enterprise_id: int
-    """Unique enterprise ID for this Market Location."""
-
-    market_location_id: MarketLocationId
-    """Market-wide identifier (MaLo, MPAN, ESI-ID, NMI, ...)."""
-
-    @classmethod
-    def from_protobuf(cls, pb_obj: pb.MarketLocationRef) -> Self:
-        """Create from protobuf message.
-
-        Args:
-            pb_obj: The protobuf message.
-
-        Returns:
-            A new MarketLocationRef instance.
-        """
-        return cls(
-            enterprise_id=pb_obj.enterprise_id,
-            market_location_id=MarketLocationId.from_protobuf(
-                pb_obj.market_location_id
-            ),
-        )
-
-    def to_protobuf(self) -> pb.MarketLocationRef:
-        """Convert to protobuf message.
-
-        Returns:
-            The protobuf representation.
-        """
-        return pb.MarketLocationRef(
-            enterprise_id=self.enterprise_id,
-            market_location_id=self.market_location_id.to_protobuf(),
-        )
-
-
-def _timestamp_to_datetime(ts: Timestamp) -> datetime:
-    """Convert a protobuf Timestamp to a datetime.
-
-    Args:
-        ts: The protobuf timestamp.
-
-    Returns:
-        The datetime representation in UTC.
-    """
-    return ts.ToDatetime()
-
-
-def _datetime_to_timestamp(dt: datetime) -> Timestamp:
-    """Convert a datetime to a protobuf Timestamp.
-
-    Args:
-        dt: The datetime to convert.
-
-    Returns:
-        The protobuf timestamp representation.
-    """
-    ts = Timestamp()
-    ts.FromDatetime(dt)
-    return ts
 
 
 @dataclass(frozen=True)
@@ -895,6 +1037,9 @@ class UpsertResult:
     error_message: str | None
     """Error message if the upsert failed."""
 
+    ingest_time: datetime | None
+    """Server-side timestamp when the sample was ingested."""
+
     @classmethod
     def from_protobuf(
         cls, pb_obj: pb.UpsertMarketLocationSamplesStreamResponse
@@ -907,6 +1052,10 @@ class UpsertResult:
         Returns:
             A new UpsertResult instance.
         """
+        ingest_time = None
+        if pb_obj.HasField("ingest_time"):
+            ingest_time = _timestamp_to_datetime(pb_obj.ingest_time)
+
         return cls(
             market_location_ref=MarketLocationRef.from_protobuf(
                 pb_obj.market_location_ref
@@ -915,6 +1064,7 @@ class UpsertResult:
             success=pb_obj.success,
             error_code=SampleUpsertErrorCode(pb_obj.error_code),
             error_message=pb_obj.error_message if pb_obj.error_message else None,
+            ingest_time=ingest_time,
         )
 
 
@@ -926,9 +1076,12 @@ __all__ = [
     "MarketArea",
     "MarketLocation",
     "MarketLocationChangedField",
+    "MarketLocationDetail",
     "MarketLocationEntry",
     "MarketLocationId",
     "MarketLocationIdType",
+    "MarketLocationOperationErrorCode",
+    "MarketLocationOperationResult",
     "MarketLocationRef",
     "MarketLocationSample",
     "MarketLocationSeries",
