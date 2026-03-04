@@ -19,11 +19,18 @@ from prompt_toolkit.shortcuts import CompleteStyle
 
 from ._client import MarketMeteringApiClient
 from .types import (
+    ActivationFilter,
     EnergyFlowDirection,
+    MarketArea,
+    MarketLocation,
+    MarketLocationDetail,
     MarketLocationId,
     MarketLocationIdType,
+    MarketLocationOperationResult,
     MarketLocationRef,
     MarketLocationSeries,
+    MarketLocationsFilter,
+    MarketLocationUpdate,
     MetricType,
     ResamplingOptions,
     TimeResolution,
@@ -75,6 +82,75 @@ def print_series(series: MarketLocationSeries, raw: bool = False) -> None:
         click.echo(f"    ... and {len(series.samples) - 10} more samples")
 
     click.echo()
+
+
+def print_detail(detail: MarketLocationDetail, raw: bool = False) -> None:
+    """Print a MarketLocationDetail in a nicely formatted way."""
+    if raw:
+        click.echo(pformat(detail, compact=True))
+        return
+
+    click.echo(click.style("Market Location:", bold=True, underline=True))
+    ref = detail.market_location_ref
+    click.echo(f"  {click.style('Enterprise ID:', fg='cyan')} {ref.enterprise_id}")
+    click.echo(
+        f"  {click.style('Location ID:', fg='cyan')} "
+        f"{ref.market_location_id.value} ({ref.market_location_id.type.name})"
+    )
+
+    ml = detail.market_location
+    click.echo(f"  {click.style('Display Name:', fg='cyan')} {ml.display_name}")
+    click.echo(f"  {click.style('Market Area:', fg='cyan')} {ml.market_area.name}")
+    click.echo(
+        f"  {click.style('Directions:', fg='cyan')} "
+        f"{', '.join(d.name for d in ml.supported_directions)}"
+    )
+    click.echo(f"  {click.style('Resolution:', fg='cyan')} {ml.time_resolution.name}")
+    if ml.payload:
+        click.echo(f"  {click.style('Payload:', fg='cyan')} {ml.payload}")
+
+    status_color = "green" if detail.is_active else "red"
+    click.echo(
+        f"  {click.style('Active:', fg='cyan')} "
+        f"{click.style(str(detail.is_active), fg=status_color)}"
+    )
+    click.echo(f"  {click.style('Revision:', fg='cyan')} {detail.revision}")
+    click.echo(
+        f"  {click.style('Created:', fg='cyan')} {format_datetime(detail.create_time)}"
+    )
+    click.echo(
+        f"  {click.style('Updated:', fg='cyan')} {format_datetime(detail.update_time)}"
+    )
+    if detail.last_deactivated_time:
+        click.echo(
+            f"  {click.style('Last Deactivated:', fg='cyan')} "
+            f"{format_datetime(detail.last_deactivated_time)}"
+        )
+    click.echo()
+
+
+def print_operation_result(
+    result: MarketLocationOperationResult, raw: bool = False
+) -> None:
+    """Print an activate/deactivate operation result."""
+    if raw:
+        click.echo(pformat(result, compact=True))
+        return
+
+    ref = result.market_location_ref
+    loc_str = (
+        f"{ref.enterprise_id}:{ref.market_location_id.value}"
+        f":{ref.market_location_id.type.name}"
+    )
+    if result.success:
+        click.echo(
+            f"  {click.style('OK', fg='green')} {loc_str} (rev {result.revision})"
+        )
+    else:
+        click.echo(
+            f"  {click.style('FAIL', fg='red')} {loc_str}: "
+            f"{result.error_code.name} - {result.error_message}"
+        )
 
 
 @click.group(invoke_without_command=True)
@@ -309,6 +385,280 @@ async def stream_cmd(
         click.echo("\nStream interrupted.", err=True)
 
 
+@cli.command("create")
+@click.pass_context
+@click.argument(
+    "market-location",
+    required=True,
+    type=MarketLocationParamType(),
+)
+@click.option(
+    "--name",
+    required=True,
+    help="Display name for the Market Location",
+)
+@click.option(
+    "--market-area",
+    required=True,
+    type=click.Choice([a.name for a in MarketArea if a.name != "UNSPECIFIED"]),
+    help="Market area / jurisdiction",
+)
+@click.option(
+    "--direction",
+    "-d",
+    type=click.Choice([d.name for d in EnergyFlowDirection if d.name != "UNSPECIFIED"]),
+    multiple=True,
+    required=True,
+    help="Supported energy flow direction(s)",
+)
+@click.option(
+    "--resolution",
+    type=click.Choice([r.name for r in TimeResolution if r.name != "UNSPECIFIED"]),
+    default="MIN_15",
+    help="Time resolution (default: MIN_15)",
+)
+# pylint: disable=too-many-arguments,too-many-positional-arguments
+async def create_cmd(
+    ctx: click.Context,
+    market_location: MarketLocationRef,
+    name: str,
+    market_area: str,
+    direction: tuple[str, ...],
+    resolution: str,
+) -> None:
+    """Create a new Market Location.
+
+    MARKET_LOCATION is specified as: enterprise_id:location_id:type
+
+    Example:
+        create 42:50601159037:MALO_ID --name "My Location" --market-area EU_DE -d IMPORT
+
+    Args:
+        ctx: Click context with client and options.
+        market_location: Market location reference.
+        name: Display name for the location.
+        market_area: Market area jurisdiction.
+        direction: Supported energy flow directions.
+        resolution: Time resolution for metering data.
+    """
+    client: MarketMeteringApiClient = ctx.obj["client"]
+    raw: bool = ctx.obj["raw"]
+
+    ml = MarketLocation(
+        display_name=name,
+        market_area=MarketArea[market_area],
+        supported_directions=[EnergyFlowDirection[d] for d in direction],
+        time_resolution=TimeResolution[resolution],
+        payload={},
+    )
+
+    detail = await client.create_market_location(
+        market_location_ref=market_location,
+        market_location=ml,
+    )
+    click.echo(click.style("Created successfully.", fg="green"), err=True)
+    print_detail(detail, raw=raw)
+
+
+@cli.command("list")
+@click.pass_context
+@click.argument("enterprise-id", required=True, type=int)
+@click.option(
+    "--activation",
+    type=click.Choice([a.name for a in ActivationFilter if a.name != "UNSPECIFIED"]),
+    default="ONLY_ACTIVE",
+    help="Activation filter (default: ONLY_ACTIVE)",
+)
+@click.option(
+    "--all-pages",
+    is_flag=True,
+    default=False,
+    help="Fetch all pages (default: first page only)",
+)
+async def list_cmd(
+    ctx: click.Context,
+    enterprise_id: int,
+    activation: str,
+    all_pages: bool,
+) -> None:
+    """List Market Locations for an enterprise.
+
+    Example:
+        list 42
+
+        list 42 --activation ALL
+
+    Args:
+        ctx: Click context with client and options.
+        enterprise_id: Enterprise ID to list locations for.
+        activation: Activation status filter.
+        all_pages: Whether to fetch all pages.
+    """
+    client: MarketMeteringApiClient = ctx.obj["client"]
+    raw: bool = ctx.obj["raw"]
+
+    filters = MarketLocationsFilter(
+        activation_filter=ActivationFilter[activation],
+    )
+
+    total = 0
+    next_page = None
+    while True:
+        entries, next_page = await client.list_market_locations(
+            enterprise_id=enterprise_id,
+            filters=filters,
+            pagination_params=next_page,
+        )
+        for entry in entries:
+            print_detail(entry.market_location_detail, raw=raw)
+            total += 1
+
+        if not all_pages or next_page is None:
+            break
+
+    click.echo(f"Total: {total} location(s)", err=True)
+
+
+@cli.command("activate")
+@click.pass_context
+@click.argument(
+    "market-locations",
+    required=True,
+    type=MarketLocationParamType(),
+    nargs=-1,
+)
+async def activate_cmd(
+    ctx: click.Context,
+    market_locations: tuple[MarketLocationRef, ...],
+) -> None:
+    """Activate one or more Market Locations.
+
+    MARKET_LOCATIONS are specified as: enterprise_id:location_id:type
+
+    Example:
+        activate 42:50601159037:MALO_ID
+
+    Args:
+        ctx: Click context with client and options.
+        market_locations: Market location references to activate.
+    """
+    client: MarketMeteringApiClient = ctx.obj["client"]
+    raw: bool = ctx.obj["raw"]
+
+    results = await client.activate_market_locations(
+        market_location_refs=list(market_locations),
+    )
+    for result in results:
+        print_operation_result(result, raw=raw)
+
+
+@cli.command("deactivate")
+@click.pass_context
+@click.argument(
+    "market-locations",
+    required=True,
+    type=MarketLocationParamType(),
+    nargs=-1,
+)
+async def deactivate_cmd(
+    ctx: click.Context,
+    market_locations: tuple[MarketLocationRef, ...],
+) -> None:
+    """Deactivate one or more Market Locations.
+
+    MARKET_LOCATIONS are specified as: enterprise_id:location_id:type
+
+    Example:
+        deactivate 42:50601159037:MALO_ID
+
+    Args:
+        ctx: Click context with client and options.
+        market_locations: Market location references to deactivate.
+    """
+    client: MarketMeteringApiClient = ctx.obj["client"]
+    raw: bool = ctx.obj["raw"]
+
+    results = await client.deactivate_market_locations(
+        market_location_refs=list(market_locations),
+    )
+    for result in results:
+        print_operation_result(result, raw=raw)
+
+
+@cli.command("update")
+@click.pass_context
+@click.argument(
+    "market-location",
+    required=True,
+    type=MarketLocationParamType(),
+)
+@click.option("--revision", required=True, type=int, help="Expected current revision")
+@click.option("--name", default=None, help="New display name")
+@click.option(
+    "--direction",
+    "-d",
+    type=click.Choice([d.name for d in EnergyFlowDirection if d.name != "UNSPECIFIED"]),
+    multiple=True,
+    default=None,
+    help="New supported direction(s) (replaces existing)",
+)
+@click.option(
+    "--resolution",
+    type=click.Choice([r.name for r in TimeResolution if r.name != "UNSPECIFIED"]),
+    default=None,
+    help="New time resolution",
+)
+# pylint: disable=too-many-arguments,too-many-positional-arguments
+async def update_cmd(
+    ctx: click.Context,
+    market_location: MarketLocationRef,
+    revision: int,
+    name: str | None,
+    direction: tuple[str, ...],
+    resolution: str | None,
+) -> None:
+    """Update a Market Location.
+
+    Requires the current revision number (use 'list' to find it).
+
+    Example:
+        update 42:50601159037:MALO_ID --revision 3 --name "New Name"
+
+    Args:
+        ctx: Click context with client and options.
+        market_location: Market location reference to update.
+        revision: Expected current revision for optimistic concurrency.
+        name: New display name (optional).
+        direction: New supported directions (optional, replaces existing).
+        resolution: New time resolution (optional).
+
+    Raises:
+        click.UsageError: If no fields to update are provided.
+    """
+    client: MarketMeteringApiClient = ctx.obj["client"]
+    raw: bool = ctx.obj["raw"]
+
+    directions = [EnergyFlowDirection[d] for d in direction] if direction else None
+    time_res = TimeResolution[resolution] if resolution else None
+
+    if not any([name, directions, time_res]):
+        raise click.UsageError("At least one field to update must be provided.")
+
+    update = MarketLocationUpdate(
+        display_name=name,
+        supported_directions=directions,
+        time_resolution=time_res,
+    )
+
+    detail = await client.update_market_location(
+        market_location_ref=market_location,
+        update=update,
+        expected_revision=revision,
+    )
+    click.echo(click.style("Updated successfully.", fg="green"), err=True)
+    print_detail(detail, raw=raw)
+
+
 @cli.command()
 @click.pass_obj
 async def repl(obj: dict[str, Any]) -> None:
@@ -326,7 +676,12 @@ async def interactive_mode(url: str, auth_key: str, sign_secret: str | None) -> 
     session: PromptSession[str] = PromptSession(history=FileHistory(filename=hist_file))
 
     user_commands = [
+        "create",
+        "list",
         "stream",
+        "activate",
+        "deactivate",
+        "update",
         "exit",
         "help",
     ]
