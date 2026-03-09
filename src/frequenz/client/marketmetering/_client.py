@@ -55,6 +55,7 @@ class MarketMeteringApiClient(
         from frequenz.client.marketmetering import MarketMeteringApiClient
         from frequenz.client.marketmetering.types import (
             EnergyFlowDirection,
+            MarketArea,
             MarketLocationId,
             MarketLocationIdType,
             MarketLocationRef,
@@ -69,6 +70,7 @@ class MarketMeteringApiClient(
 
         market_location = MarketLocationRef(
             enterprise_id=42,
+            market_area=MarketArea.EU_DE,
             market_location_id=MarketLocationId(
                 value="DE01234567890",
                 type=MarketLocationIdType.MALO_ID,

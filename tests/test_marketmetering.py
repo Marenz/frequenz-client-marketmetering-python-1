@@ -93,12 +93,14 @@ class TestMarketLocationRef:
         """Test creating a MarketLocationRef."""
         ml_ref = MarketLocationRef(
             enterprise_id=42,
+            market_area=MarketArea.EU_DE,
             market_location_id=MarketLocationId(
                 value="DE01234567890",
                 type=MarketLocationIdType.MALO_ID,
             ),
         )
         assert ml_ref.enterprise_id == 42
+        assert ml_ref.market_area == MarketArea.EU_DE
         assert ml_ref.market_location_id.value == "DE01234567890"
 
 
