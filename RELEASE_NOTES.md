@@ -18,7 +18,12 @@ Initial release of the Frequenz Market Metering API client for Python.
 - `MarketLocationOperationResult` / `MarketLocationOperationErrorCode`: Per-location results for activate/deactivate operations.
 - `UpsertResult.ingest_time`: Server-side timestamp when the sample was ingested.
 - `revision_strategy` parameter on `stream_samples()` and `stream()`.
-- CLI tool (`marketmetering-cli`) for quick access to metering data
+- CLI tool (`marketmetering-cli`) with commands for managing market locations:
+  - `create`: Create a new market location with name, market area, directions, and resolution
+  - `list`: List market locations for an enterprise with activation filtering and pagination
+  - `activate` / `deactivate`: Activate or deactivate one or more market locations
+  - `update`: Update a market location (display name, directions, resolution) with optimistic concurrency
+  - `stream`: Stream metering samples from market locations
 - Support for multiple market identifier types:
   - MaLo-ID (Germany)
   - Zählpunkt (Austria)
