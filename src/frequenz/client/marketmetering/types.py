@@ -517,7 +517,7 @@ class MarketLocationId:
             A new MarketLocationId instance.
         """
         return cls(
-            value=pb_obj.value,
+            value=pb_obj.id.value,
             type=MarketLocationIdType(pb_obj.type),
         )
 
@@ -528,17 +528,28 @@ class MarketLocationId:
             The protobuf representation.
         """
         return pb.MarketLocationId(
-            value=self.value,
+            id=pb.MarketLocationIdValue(value=self.value),
             type=self.type.value,
         )
+
+    def to_id_value_protobuf(self) -> pb.MarketLocationIdValue:
+        """Convert to a MarketLocationIdValue protobuf message.
+
+        Returns:
+            The protobuf representation containing only the value.
+        """
+        return pb.MarketLocationIdValue(value=self.value)
 
 
 @dataclass(frozen=True)
 class MarketLocationRef:
-    """Reference to a Market Location within a specific enterprise."""
+    """Reference to a Market Location within a specific enterprise and market area."""
 
     enterprise_id: int
     """Unique enterprise ID for this Market Location."""
+
+    market_area: MarketArea
+    """Regulatory jurisdiction in which this Market Location is registered."""
 
     market_location_id: MarketLocationId
     """Market-wide identifier (MaLo, MPAN, ESI-ID, NMI, ...)."""
@@ -555,6 +566,7 @@ class MarketLocationRef:
         """
         return cls(
             enterprise_id=pb_obj.enterprise_id,
+            market_area=MarketArea(pb_obj.market_area),
             market_location_id=MarketLocationId.from_protobuf(
                 pb_obj.market_location_id
             ),
@@ -568,6 +580,7 @@ class MarketLocationRef:
         """
         return pb.MarketLocationRef(
             enterprise_id=self.enterprise_id,
+            market_area=self.market_area.value,
             market_location_id=self.market_location_id.to_protobuf(),
         )
 
@@ -578,9 +591,6 @@ class MarketLocation:
 
     display_name: str
     """Human-readable name of the Market Location."""
-
-    market_area: MarketArea
-    """Jurisdiction or market area."""
 
     supported_directions: list[EnergyFlowDirection]
     """Supported energy flow directions."""
@@ -603,7 +613,6 @@ class MarketLocation:
         """
         return cls(
             display_name=pb_obj.display_name,
-            market_area=MarketArea(pb_obj.market_area),
             supported_directions=[
                 EnergyFlowDirection(d) for d in pb_obj.supported_directions
             ],
@@ -622,7 +631,6 @@ class MarketLocation:
 
         return pb.MarketLocation(
             display_name=self.display_name,
-            market_area=self.market_area.value,
             supported_directions=[d.value for d in self.supported_directions],
             time_resolution=self.time_resolution.value,
             payload=pb_struct,
@@ -687,26 +695,49 @@ class MarketLocationDetail:
 
 
 @dataclass(frozen=True)
+class MarketLocationOperationError:
+    """Structured error for a rejected Market Location operation."""
+
+    code: MarketLocationOperationErrorCode
+    """Machine-readable classification of the failure."""
+
+    message: str
+    """Human-readable diagnostic message for logging and debugging."""
+
+    @classmethod
+    def from_protobuf(cls, pb_obj: pb.MarketLocationOperationError) -> Self:
+        """Create from protobuf message.
+
+        Args:
+            pb_obj: The protobuf message.
+
+        Returns:
+            A new MarketLocationOperationError instance.
+        """
+        return cls(
+            code=MarketLocationOperationErrorCode(pb_obj.code),
+            message=pb_obj.message,
+        )
+
+
+@dataclass(frozen=True)
 class MarketLocationOperationResult:
-    """Result of an activate or deactivate operation on a Market Location."""
+    """Result of an activate or deactivate operation on a Market Location.
+
+    If ``error`` is ``None`` the operation succeeded; otherwise it was rejected.
+    """
 
     market_location_ref: MarketLocationRef
     """Reference to the Market Location."""
 
-    success: bool
-    """Whether the operation succeeded."""
-
     update_time: datetime | None
-    """Timestamp of the operation, if successful."""
-
-    error_code: MarketLocationOperationErrorCode
-    """Error code if the operation failed."""
-
-    error_message: str | None
-    """Error message if the operation failed."""
+    """Timestamp of the operation. Populated only on success."""
 
     revision: int
-    """Server-managed revision after the operation."""
+    """Server-managed revision after the operation. Populated only on success."""
+
+    error: MarketLocationOperationError | None
+    """Error details if the operation was rejected, ``None`` on success."""
 
     @classmethod
     def from_protobuf(cls, pb_obj: pb.MarketLocationOperationResult) -> Self:
@@ -722,15 +753,17 @@ class MarketLocationOperationResult:
         if pb_obj.HasField("update_time"):
             update_time = _timestamp_to_datetime(pb_obj.update_time)
 
+        error = None
+        if pb_obj.HasField("error"):
+            error = MarketLocationOperationError.from_protobuf(pb_obj.error)
+
         return cls(
             market_location_ref=MarketLocationRef.from_protobuf(
                 pb_obj.market_location_ref
             ),
-            success=pb_obj.success,
             update_time=update_time,
-            error_code=MarketLocationOperationErrorCode(pb_obj.error_code),
-            error_message=pb_obj.error_message if pb_obj.error_message else None,
             revision=pb_obj.revision,
+            error=error,
         )
 
 
@@ -847,7 +880,8 @@ class MarketLocationsFilter:
         """
         return pb.MarketLocationsFilter(
             market_location_id_filters=[
-                ml_id.to_protobuf() for ml_id in self.market_location_id_filters
+                ml_id.to_id_value_protobuf()
+                for ml_id in self.market_location_id_filters
             ],
             activation_filter=self.activation_filter.value,
         )
@@ -1019,26 +1053,68 @@ class ResamplingOptions:
 
 
 @dataclass(frozen=True)
+class SampleUpsertError:
+    """Structured error for a rejected sample upsert."""
+
+    error_code: SampleUpsertErrorCode
+    """Machine-readable classification of the failure."""
+
+    error_message: str
+    """Human-readable diagnostic message for logging and debugging."""
+
+    existing_sample: MarketLocationSample | None
+    """The stored sample that prevented this upsert, if available.
+
+    Populated only for REVISION_CONFLICT and REVISION_TOO_OLD errors.
+    """
+
+    @classmethod
+    def from_protobuf(cls, pb_obj: pb.SampleUpsertError) -> Self:
+        """Create from protobuf message.
+
+        Args:
+            pb_obj: The protobuf message.
+
+        Returns:
+            A new SampleUpsertError instance.
+        """
+        existing_sample = None
+        if pb_obj.HasField("existing_sample"):
+            existing_sample = MarketLocationSample.from_protobuf(pb_obj.existing_sample)
+        return cls(
+            error_code=SampleUpsertErrorCode(pb_obj.error_code),
+            error_message=pb_obj.error_message,
+            existing_sample=existing_sample,
+        )
+
+
+@dataclass(frozen=True)
 class UpsertResult:
-    """Result of a sample upsert operation."""
+    """Result of a sample upsert operation.
+
+    If ``error`` is ``None`` the upsert was accepted; otherwise it was rejected.
+    """
 
     market_location_ref: MarketLocationRef
     """Reference to the Market Location."""
 
+    direction: EnergyFlowDirection
+    """Energy-flow direction of the sample (echoed from request)."""
+
+    metric_type: MetricType
+    """Metric type of the sample (echoed from request)."""
+
+    metric_unit: MetricUnit
+    """Metric unit of the sample (echoed from request)."""
+
     sample: MarketLocationSample
-    """The sample that was upserted."""
-
-    success: bool
-    """Whether the upsert was successful."""
-
-    error_code: SampleUpsertErrorCode
-    """Error code if the upsert failed."""
-
-    error_message: str | None
-    """Error message if the upsert failed."""
+    """The sample that was upserted (echoed from request)."""
 
     ingest_time: datetime | None
-    """Server-side timestamp when the sample was ingested."""
+    """Server-side timestamp when the sample was ingested. Populated only on success."""
+
+    error: SampleUpsertError | None
+    """Error details if the upsert was rejected, ``None`` on success."""
 
     @classmethod
     def from_protobuf(
@@ -1056,15 +1132,20 @@ class UpsertResult:
         if pb_obj.HasField("ingest_time"):
             ingest_time = _timestamp_to_datetime(pb_obj.ingest_time)
 
+        error = None
+        if pb_obj.HasField("error"):
+            error = SampleUpsertError.from_protobuf(pb_obj.error)
+
         return cls(
             market_location_ref=MarketLocationRef.from_protobuf(
                 pb_obj.market_location_ref
             ),
+            direction=EnergyFlowDirection(pb_obj.direction),
+            metric_type=MetricType(pb_obj.metric_type),
+            metric_unit=MetricUnit(pb_obj.metric_unit),
             sample=MarketLocationSample.from_protobuf(pb_obj.sample),
-            success=pb_obj.success,
-            error_code=SampleUpsertErrorCode(pb_obj.error_code),
-            error_message=pb_obj.error_message if pb_obj.error_message else None,
             ingest_time=ingest_time,
+            error=error,
         )
 
 
@@ -1080,6 +1161,7 @@ __all__ = [
     "MarketLocationEntry",
     "MarketLocationId",
     "MarketLocationIdType",
+    "MarketLocationOperationError",
     "MarketLocationOperationErrorCode",
     "MarketLocationOperationResult",
     "MarketLocationRef",
@@ -1094,6 +1176,7 @@ __all__ = [
     "ResamplingOptions",
     "RevisionSelection",
     "RevisionStrategy",
+    "SampleUpsertError",
     "SampleUpsertErrorCode",
     "TimeResolution",
     "UpsertResult",

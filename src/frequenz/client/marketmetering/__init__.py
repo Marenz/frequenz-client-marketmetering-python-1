@@ -13,6 +13,7 @@ Example:
     from frequenz.client.marketmetering import MarketMeteringApiClient
     from frequenz.client.marketmetering.types import (
         EnergyFlowDirection,
+        MarketArea,
         MarketLocationId,
         MarketLocationIdType,
         MarketLocationRef,
@@ -27,6 +28,7 @@ Example:
 
     market_location = MarketLocationRef(
         enterprise_id=42,
+        market_area=MarketArea.EU_DE,
         market_location_id=MarketLocationId(
             value="DE01234567890",
             type=MarketLocationIdType.MALO_ID,
@@ -57,6 +59,7 @@ from .types import (
     MarketLocationEntry,
     MarketLocationId,
     MarketLocationIdType,
+    MarketLocationOperationError,
     MarketLocationOperationErrorCode,
     MarketLocationOperationResult,
     MarketLocationRef,
@@ -71,6 +74,7 @@ from .types import (
     ResamplingOptions,
     RevisionSelection,
     RevisionStrategy,
+    SampleUpsertError,
     SampleUpsertErrorCode,
     TimeResolution,
     UpsertResult,
@@ -88,6 +92,7 @@ __all__ = [
     "MarketLocationEntry",
     "MarketLocationId",
     "MarketLocationIdType",
+    "MarketLocationOperationError",
     "MarketLocationOperationErrorCode",
     "MarketLocationOperationResult",
     "MarketLocationRef",
@@ -103,6 +108,7 @@ __all__ = [
     "ResamplingOptions",
     "RevisionSelection",
     "RevisionStrategy",
+    "SampleUpsertError",
     "SampleUpsertErrorCode",
     "TimeResolution",
     "UpsertResult",

@@ -100,7 +100,7 @@ def print_detail(detail: MarketLocationDetail, raw: bool = False) -> None:
 
     ml = detail.market_location
     click.echo(f"  {click.style('Display Name:', fg='cyan')} {ml.display_name}")
-    click.echo(f"  {click.style('Market Area:', fg='cyan')} {ml.market_area.name}")
+    click.echo(f"  {click.style('Market Area:', fg='cyan')} {ref.market_area.name}")
     click.echo(
         f"  {click.style('Directions:', fg='cyan')} "
         f"{', '.join(d.name for d in ml.supported_directions)}"
@@ -142,14 +142,14 @@ def print_operation_result(
         f"{ref.enterprise_id}:{ref.market_location_id.value}"
         f":{ref.market_location_id.type.name}"
     )
-    if result.success:
+    if result.error is None:
         click.echo(
             f"  {click.style('OK', fg='green')} {loc_str} (rev {result.revision})"
         )
     else:
         click.echo(
             f"  {click.style('FAIL', fg='red')} {loc_str}: "
-            f"{result.error_code.name} - {result.error_message}"
+            f"{result.error.code.name} - {result.error.message}"
         )
 
 
@@ -234,14 +234,14 @@ async def cli(
 def parse_market_location(value: str) -> MarketLocationRef:
     """Parse a market location string.
 
-    Format: enterprise_id:location_id:type
-    Example: 42:DE01234567890:MALO_ID
+    Format: enterprise_id:market_area:location_id:type
+    Example: 42:EU_DE:DE01234567890:MALO_ID
     """
     parts = value.split(":")
-    if len(parts) != 3:
+    if len(parts) != 4:
         raise click.BadParameter(
             f"Invalid market location format: {value}. "
-            "Expected format: enterprise_id:location_id:type"
+            "Expected format: enterprise_id:market_area:location_id:type"
         )
 
     try:
@@ -249,20 +249,29 @@ def parse_market_location(value: str) -> MarketLocationRef:
     except ValueError as exc:
         raise click.BadParameter(f"Invalid enterprise_id: {parts[0]}") from exc
 
-    location_id = parts[1]
+    try:
+        market_area = MarketArea[parts[1].upper()]
+    except KeyError as exc:
+        valid_areas = ", ".join(a.name for a in MarketArea if a.name != "UNSPECIFIED")
+        raise click.BadParameter(
+            f"Invalid market area: {parts[1]}. Valid areas: {valid_areas}"
+        ) from exc
+
+    location_id = parts[2]
 
     try:
-        id_type = MarketLocationIdType[parts[2].upper()]
+        id_type = MarketLocationIdType[parts[3].upper()]
     except KeyError as exc:
         valid_types = ", ".join(
             t.name for t in MarketLocationIdType if t.name != "UNSPECIFIED"
         )
         raise click.BadParameter(
-            f"Invalid location type: {parts[2]}. Valid types: {valid_types}"
+            f"Invalid location type: {parts[3]}. Valid types: {valid_types}"
         ) from exc
 
     return MarketLocationRef(
         enterprise_id=enterprise_id,
+        market_area=market_area,
         market_location_id=MarketLocationId(value=location_id, type=id_type),
     )
 
@@ -335,10 +344,10 @@ async def stream_cmd(
 ) -> None:
     """Stream metering samples from Market Locations.
 
-    MARKET_LOCATIONS are specified as: enterprise_id:location_id:type
+    MARKET_LOCATIONS are specified as: enterprise_id:market_area:location_id:type
 
     Example:
-        42:DE01234567890:MALO_ID
+        42:EU_DE:DE01234567890:MALO_ID
 
     Valid types: MALO_ID, MPAN, ESI_ID, NMI, OTHER
 
@@ -398,12 +407,6 @@ async def stream_cmd(
     help="Display name for the Market Location",
 )
 @click.option(
-    "--market-area",
-    required=True,
-    type=click.Choice([a.name for a in MarketArea if a.name != "UNSPECIFIED"]),
-    help="Market area / jurisdiction",
-)
-@click.option(
     "--direction",
     "-d",
     type=click.Choice([d.name for d in EnergyFlowDirection if d.name != "UNSPECIFIED"]),
@@ -422,22 +425,20 @@ async def create_cmd(
     ctx: click.Context,
     market_location: MarketLocationRef,
     name: str,
-    market_area: str,
     direction: tuple[str, ...],
     resolution: str,
 ) -> None:
     """Create a new Market Location.
 
-    MARKET_LOCATION is specified as: enterprise_id:location_id:type
+    MARKET_LOCATION is specified as: enterprise_id:market_area:location_id:type
 
     Example:
-        create 42:50601159037:MALO_ID --name "My Location" --market-area EU_DE -d IMPORT
+        create 42:EU_DE:50601159037:MALO_ID --name "My Location" -d IMPORT
 
     Args:
         ctx: Click context with client and options.
         market_location: Market location reference.
         name: Display name for the location.
-        market_area: Market area jurisdiction.
         direction: Supported energy flow directions.
         resolution: Time resolution for metering data.
     """
@@ -446,7 +447,6 @@ async def create_cmd(
 
     ml = MarketLocation(
         display_name=name,
-        market_area=MarketArea[market_area],
         supported_directions=[EnergyFlowDirection[d] for d in direction],
         time_resolution=TimeResolution[resolution],
         payload={},
@@ -533,10 +533,10 @@ async def activate_cmd(
 ) -> None:
     """Activate one or more Market Locations.
 
-    MARKET_LOCATIONS are specified as: enterprise_id:location_id:type
+    MARKET_LOCATIONS are specified as: enterprise_id:market_area:location_id:type
 
     Example:
-        activate 42:50601159037:MALO_ID
+        activate 42:EU_DE:50601159037:MALO_ID
 
     Args:
         ctx: Click context with client and options.
@@ -566,10 +566,10 @@ async def deactivate_cmd(
 ) -> None:
     """Deactivate one or more Market Locations.
 
-    MARKET_LOCATIONS are specified as: enterprise_id:location_id:type
+    MARKET_LOCATIONS are specified as: enterprise_id:market_area:location_id:type
 
     Example:
-        deactivate 42:50601159037:MALO_ID
+        deactivate 42:EU_DE:50601159037:MALO_ID
 
     Args:
         ctx: Click context with client and options.
@@ -622,7 +622,7 @@ async def update_cmd(
     Requires the current revision number (use 'list' to find it).
 
     Example:
-        update 42:50601159037:MALO_ID --revision 3 --name "New Name"
+        update 42:EU_DE:50601159037:MALO_ID --revision 3 --name "New Name"
 
     Args:
         ctx: Click context with client and options.
