@@ -5,6 +5,10 @@
 
 from __future__ import annotations
 
+import hmac
+import secrets
+import time
+from base64 import urlsafe_b64encode
 from datetime import datetime, timedelta
 from typing import AsyncIterator, cast
 
@@ -151,6 +155,33 @@ class MarketMeteringApiClient(
         if self._channel is None or self._stub is None:
             raise ClientNotConnected(server_url=self.server_url, operation="stub")
         return self._stub
+
+    def _metadata(self, method: str) -> tuple[tuple[str, str | bytes], ...] | None:
+        """Build request metadata for RPCs not covered by client-base interceptors."""
+        if self._auth_key is None:
+            return None
+
+        metadata: list[tuple[str, str | bytes]] = [("key", self._auth_key)]
+        if self._sign_secret is None:
+            return tuple(metadata)
+
+        ts = str(int(time.time())).encode()
+        nonce = urlsafe_b64encode(secrets.token_bytes(16))
+
+        digest = hmac.new(self._sign_secret.encode(), digestmod="sha256")
+        digest.update(self._auth_key.encode())
+        digest.update(ts)
+        digest.update(nonce)
+        digest.update(method.encode())
+
+        metadata.extend(
+            [
+                ("ts", ts),
+                ("nonce", nonce),
+                ("sig", urlsafe_b64encode(digest.digest()).rstrip(b"=")),
+            ]
+        )
+        return tuple(metadata)
 
     async def create_market_location(
         self,
@@ -336,6 +367,7 @@ class MarketMeteringApiClient(
             AsyncIterator[pb.UpsertMarketLocationSamplesStreamResponse],
             self.stub.UpsertMarketLocationSamplesStream(
                 request_generator(),  # type: ignore[arg-type]
+                metadata=self._metadata("UpsertMarketLocationSamplesStream"),
                 timeout=self._stream_timeout_seconds,
             ),
         )

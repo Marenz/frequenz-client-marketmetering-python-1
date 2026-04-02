@@ -551,9 +551,9 @@ class TestStreamSamples:
         response = pb.ReceiveMarketLocationSamplesStreamResponse(series=[series_pb])
 
         # Mock the streaming call to return an async iterator.
-        async def mock_stream() -> AsyncIterator[
-            pb.ReceiveMarketLocationSamplesStreamResponse
-        ]:
+        async def mock_stream() -> (
+            AsyncIterator[pb.ReceiveMarketLocationSamplesStreamResponse]
+        ):
             yield response
 
         client.stub.ReceiveMarketLocationSamplesStream = MagicMock(
@@ -579,9 +579,9 @@ class TestStreamSamples:
         """Test that start_time and end_time are sent."""
         client = _make_client()
 
-        async def mock_stream() -> AsyncIterator[
-            pb.ReceiveMarketLocationSamplesStreamResponse
-        ]:
+        async def mock_stream() -> (
+            AsyncIterator[pb.ReceiveMarketLocationSamplesStreamResponse]
+        ):
             return
             yield  # make it an async generator  # noqa: RET504
 
@@ -638,9 +638,9 @@ class TestUpsertSamples:
             sample=sample_pb,
         )
 
-        async def mock_stream() -> AsyncIterator[
-            pb.UpsertMarketLocationSamplesStreamResponse
-        ]:
+        async def mock_stream() -> (
+            AsyncIterator[pb.UpsertMarketLocationSamplesStreamResponse]
+        ):
             yield upsert_response
 
         client.stub.UpsertMarketLocationSamplesStream = MagicMock(
@@ -666,9 +666,9 @@ class TestUpsertSamples:
             samples=[sample],
         )
 
-        async def input_stream() -> AsyncIterator[
-            tuple[MarketLocationRef, MarketLocationSeries]
-        ]:
+        async def input_stream() -> (
+            AsyncIterator[tuple[MarketLocationRef, MarketLocationSeries]]
+        ):
             yield (ml_ref, series)
 
         results = []

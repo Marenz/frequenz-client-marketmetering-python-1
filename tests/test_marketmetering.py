@@ -3,8 +3,13 @@
 
 """Tests for the Market Metering client."""
 
-from datetime import timedelta
+from collections.abc import AsyncIterator
+from datetime import datetime, timedelta, timezone
+from typing import Any, cast
 
+import pytest
+
+from frequenz.client.marketmetering import MarketMeteringApiClient
 from frequenz.client.marketmetering.types import (
     DataQuality,
     DownsamplingMethod,
@@ -13,6 +18,8 @@ from frequenz.client.marketmetering.types import (
     MarketLocationId,
     MarketLocationIdType,
     MarketLocationRef,
+    MarketLocationSample,
+    MarketLocationSeries,
     MetricType,
     MetricUnit,
     ResamplingMethod,
@@ -117,3 +124,96 @@ class TestResamplingOptions:
         """Test ResamplingOptions with resolution."""
         options = ResamplingOptions(resolution=TimeResolution.MIN_15)
         assert options.resolution == TimeResolution.MIN_15
+
+
+class _UpsertStub:
+    """A fake stub capturing upsert stream call arguments."""
+
+    def __init__(self) -> None:
+        self.metadata: tuple[tuple[str, str | bytes], ...] | None = None
+        self.requests: list[object] = []
+
+    # gRPC-generated method names use UpperCamelCase and this stub mirrors that.
+    # pylint: disable=invalid-name,missing-function-docstring
+    async def UpsertMarketLocationSamplesStream(  # noqa: N802
+        self,
+        request_iterator: AsyncIterator[object],
+        *,
+        metadata: tuple[tuple[str, str | bytes], ...] | None = None,
+        timeout: float | None = None,
+    ) -> AsyncIterator[object]:
+        del timeout
+        self.metadata = metadata
+        async for request in request_iterator:
+            self.requests.append(request)
+        items: tuple[object, ...] = ()
+        for item in items:
+            yield item
+
+
+class TestClientMethods:
+    """Tests for client RPC helpers."""
+
+    @pytest.mark.asyncio
+    async def test_upsert_samples_adds_stream_metadata(self) -> None:
+        """Test that bidi upsert includes auth and signing metadata."""
+        client = MarketMeteringApiClient(
+            server_url="grpc://example.com",
+            auth_key="test-key",
+            sign_secret="test-secret",
+            connect=False,
+        )
+        stub = _UpsertStub()
+        setattr(client, "_stub", cast(Any, stub))
+        setattr(client, "_channel", cast(Any, object()))
+
+        market_location_ref = MarketLocationRef(
+            enterprise_id=42,
+            market_area=MarketArea.EU_DE,
+            market_location_id=MarketLocationId(
+                value="DE01234567890",
+                type=MarketLocationIdType.MALO_ID,
+            ),
+        )
+        series = MarketLocationSeries(
+            market_location_ref=market_location_ref,
+            direction=EnergyFlowDirection.IMPORT,
+            metric_type=MetricType.ACTIVE_ENERGY,
+            metric_unit=MetricUnit.KWH,
+            resolution=TimeResolution.MIN_15,
+            samples=[],
+        )
+        sample = MarketLocationSample(
+            sample_time=datetime.now(timezone.utc),
+            value=1.0,
+            quality=DataQuality.MEASURED,
+            revision=1,
+            update_time=None,
+            resampling_method=ResamplingMethod.UNSPECIFIED,
+        )
+
+        async def sample_generator() -> (
+            AsyncIterator[tuple[MarketLocationRef, MarketLocationSeries]]
+        ):
+            yield (
+                market_location_ref,
+                MarketLocationSeries(
+                    market_location_ref=series.market_location_ref,
+                    direction=series.direction,
+                    metric_type=series.metric_type,
+                    metric_unit=series.metric_unit,
+                    resolution=series.resolution,
+                    samples=[sample],
+                ),
+            )
+
+        assert [
+            result async for result in client.upsert_samples(sample_generator())
+        ] == []
+        assert stub.metadata is not None
+        metadata = dict(stub.metadata)
+        assert metadata["key"] == "test-key"
+        assert metadata["ts"]
+        assert metadata["nonce"]
+        assert metadata["sig"]
+        assert len(stub.requests) == 1

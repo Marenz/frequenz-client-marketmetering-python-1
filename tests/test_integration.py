@@ -1,5 +1,5 @@
 # License: MIT
-# Copyright © 2025 Frequenz Energy-as-a-Service GmbH
+# Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
 """Integration tests for the MarketMeteringApiClient against a live service.
 
@@ -27,6 +27,8 @@ CI by default. To run them:
         uv run pytest -m integration
 """
 
+import os
+import socket
 from collections.abc import AsyncIterator
 
 import grpc
@@ -52,9 +54,22 @@ AUTH_KEY = "test-key"
 pytestmark = pytest.mark.integration
 
 
+def _service_available() -> bool:
+    """Check whether the local integration test service is reachable."""
+    with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.5)
+        return sock.connect_ex(("::1", 50051, 0, 0)) == 0
+
+
 @pytest.fixture
 async def client() -> AsyncIterator[MarketMeteringApiClient]:
     """Create a connected client for testing."""
+    if os.environ.get("CI") == "true":
+        pytest.skip("integration tests are not run in CI")
+
+    if not _service_available():
+        pytest.skip("integration test service is not running on [::1]:50051")
+
     c = MarketMeteringApiClient(
         server_url=SERVICE_URL,
         auth_key=AUTH_KEY,
@@ -152,11 +167,7 @@ class TestCreateMarketLocation:
                 market_location_ref=ml_ref,
                 market_location=ml,
             )
-        assert exc_info.value.code() in (
-            grpc.StatusCode.ALREADY_EXISTS,
-            grpc.StatusCode.INVALID_ARGUMENT,
-            grpc.StatusCode.INTERNAL,
-        )
+        assert exc_info.value.code() == grpc.StatusCode.ALREADY_EXISTS
 
     async def test_create_with_different_resolutions(
         self, client: MarketMeteringApiClient
