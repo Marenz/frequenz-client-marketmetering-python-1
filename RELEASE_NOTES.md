@@ -53,3 +53,4 @@ Initial release of the Frequenz Market Metering API client for Python.
 ## Bug Fixes
 
 - `update_market_location()`: Add missing `expected_revision` parameter required for optimistic concurrency control.
+- `upsert_samples()`: Attach auth and signing metadata to the streaming upsert RPC so authenticated sample upserts work against services that require signed requests.
