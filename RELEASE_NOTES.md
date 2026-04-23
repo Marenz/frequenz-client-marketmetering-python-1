@@ -54,3 +54,4 @@ Initial release of the Frequenz Market Metering API client for Python.
 
 - `update_market_location()`: Add missing `expected_revision` parameter required for optimistic concurrency control.
 - `upsert_samples()`: Attach auth and signing metadata to the streaming upsert RPC so authenticated sample upserts work against services that require signed requests.
+- `list_market_locations()`: Return `None` for the next-page params when the server reports an empty `next_page_token`. Previously the client wrapped the empty token into a `PaginationParams`, causing follow-up calls to fail with `INVALID_ARGUMENT: Invalid page token`.

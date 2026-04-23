@@ -391,6 +391,22 @@ class TestListMarketLocations:
         assert next_page is not None
         assert next_page.page_token == "token123"
 
+    async def test_pagination_empty_token_returns_none(self) -> None:
+        """Empty next_page_token signals end of results, not a follow-up page."""
+        client = _make_client()
+
+        # Server populates pagination_info on the last page but leaves the
+        # token empty. The client must not wrap that into PaginationParams,
+        # otherwise the caller would loop forever and the server would
+        # reject the empty token as invalid.
+        pagination_info = pagination_info_pb.PaginationInfo(next_page_token="")
+        response = pb.ListMarketLocationsResponse(pagination_info=pagination_info)
+        client.stub.ListMarketLocations = AsyncMock(return_value=response)
+
+        _, next_page = await client.list_market_locations(enterprise_id=1)
+
+        assert next_page is None
+
     async def test_sends_filters(self) -> None:
         """Test that filters are sent in the request."""
         client = _make_client()
