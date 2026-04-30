@@ -328,8 +328,15 @@ class MarketMeteringApiClient(
             MarketLocationEntry.from_protobuf(ml) for ml in response.market_locations
         ]
 
+        # An empty `next_page_token` signals the end of the result set
+        # (AIP-158). Returning a PaginationParams with an empty token would
+        # make the server reject the follow-up request as an invalid page
+        # token, so treat "empty token" the same as "no pagination info".
         next_page_params = None
-        if response.HasField("pagination_info"):
+        if (
+            response.HasField("pagination_info")
+            and response.pagination_info.next_page_token
+        ):
             next_page_params = PaginationParams(
                 page_token=response.pagination_info.next_page_token
             )
