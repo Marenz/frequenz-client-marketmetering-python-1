@@ -392,7 +392,7 @@ class MarketMeteringApiClient(
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         resampling: ResamplingOptions | None = None,
-        revision_strategy: RevisionStrategy | None = None,
+        revision_strategy: RevisionStrategy = RevisionStrategy.LATEST_ONLY,
     ) -> AsyncIterator[MarketLocationSeries]:
         """Stream metering samples for Market Locations.
 
@@ -408,7 +408,8 @@ class MarketMeteringApiClient(
                 If omitted, stream starts from real-time data.
             end_time: Optional end time. If omitted, stream continues in real-time.
             resampling: Optional resampling options for aggregation.
-            revision_strategy: Optional revision strategy for the stream filter.
+            revision_strategy: Revision strategy for the stream filter (defaults to
+                returning only the latest revision).
 
         Yields:
             MarketLocationSeries objects containing samples for each combination
@@ -449,8 +450,7 @@ class MarketMeteringApiClient(
         if resampling:
             stream_filter.resampling_options.CopyFrom(resampling.to_protobuf())
 
-        if revision_strategy:
-            stream_filter.revision_strategy = revision_strategy.value
+        stream_filter.revision_strategy = revision_strategy.value
 
         request.stream_filter.CopyFrom(stream_filter)
 
@@ -477,7 +477,7 @@ class MarketMeteringApiClient(
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         resampling: ResamplingOptions | None = None,
-        revision_strategy: RevisionStrategy | None = None,
+        revision_strategy: RevisionStrategy = RevisionStrategy.LATEST_ONLY,
     ) -> channels.Receiver[MarketLocationSeries]:
         """Get a receiver for streaming metering samples.
 
@@ -492,7 +492,8 @@ class MarketMeteringApiClient(
             start_time: Optional start time for historical data.
             end_time: Optional end time. If omitted, stream continues in real-time.
             resampling: Optional resampling options for aggregation.
-            revision_strategy: Optional revision strategy for the stream filter.
+            revision_strategy: Revision strategy for the stream filter (defaults to
+                returning only the latest revision).
 
         Returns:
             A channel receiver for MarketLocationSeries objects.
@@ -528,7 +529,7 @@ class MarketMeteringApiClient(
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         resampling: ResamplingOptions | None = None,
-        revision_strategy: RevisionStrategy | None = None,
+        revision_strategy: RevisionStrategy = RevisionStrategy.LATEST_ONLY,
     ) -> GrpcStreamBroadcaster[
         pb.ReceiveMarketLocationSamplesStreamResponse, MarketLocationSeries
     ]:
@@ -568,8 +569,7 @@ class MarketMeteringApiClient(
             if resampling:
                 stream_filter.resampling_options.CopyFrom(resampling.to_protobuf())
 
-            if revision_strategy:
-                stream_filter.revision_strategy = revision_strategy.value
+            stream_filter.revision_strategy = revision_strategy.value
 
             request.stream_filter.CopyFrom(stream_filter)
 

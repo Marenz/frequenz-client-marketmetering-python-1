@@ -33,6 +33,7 @@ from frequenz.client.marketmetering.types import (
     MetricUnit,
     PaginationParams,
     ResamplingMethod,
+    RevisionStrategy,
     TimeResolution,
 )
 
@@ -622,6 +623,61 @@ class TestStreamSamples:
         interval = request.stream_filter.time_filter.interval
         assert interval.start_time == _make_timestamp(start)
         assert interval.end_time == _make_timestamp(end)
+
+    async def test_defaults_revision_strategy_to_latest_only(self) -> None:
+        """Test that the revision strategy defaults to LATEST_ONLY.
+
+        The server rejects requests with an UNSPECIFIED revision strategy, so
+        the client must always send a valid one.
+        """
+        client = _make_client()
+
+        async def mock_stream() -> (
+            AsyncIterator[pb.ReceiveMarketLocationSamplesStreamResponse]
+        ):
+            return
+            yield  # make it an async generator  # noqa: RET504
+
+        client.stub.ReceiveMarketLocationSamplesStream = MagicMock(
+            return_value=mock_stream()
+        )
+
+        async for _ in client.stream_samples(
+            market_locations=[_make_ref()],
+            directions=[EnergyFlowDirection.IMPORT],
+            metric_types=[MetricType.ACTIVE_ENERGY],
+        ):
+            pass
+
+        request = client.stub.ReceiveMarketLocationSamplesStream.call_args[0][0]
+        assert (
+            request.stream_filter.revision_strategy == pb.REVISION_STRATEGY_LATEST_ONLY
+        )
+
+    async def test_sends_explicit_revision_strategy(self) -> None:
+        """Test that an explicit revision strategy is forwarded."""
+        client = _make_client()
+
+        async def mock_stream() -> (
+            AsyncIterator[pb.ReceiveMarketLocationSamplesStreamResponse]
+        ):
+            return
+            yield  # make it an async generator  # noqa: RET504
+
+        client.stub.ReceiveMarketLocationSamplesStream = MagicMock(
+            return_value=mock_stream()
+        )
+
+        async for _ in client.stream_samples(
+            market_locations=[_make_ref()],
+            directions=[EnergyFlowDirection.IMPORT],
+            metric_types=[MetricType.ACTIVE_ENERGY],
+            revision_strategy=RevisionStrategy.ALL,
+        ):
+            pass
+
+        request = client.stub.ReceiveMarketLocationSamplesStream.call_args[0][0]
+        assert request.stream_filter.revision_strategy == pb.REVISION_STRATEGY_ALL
 
 
 class TestUpsertSamples:
