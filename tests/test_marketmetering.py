@@ -99,14 +99,13 @@ class TestMarketLocationRef:
     def test_create_market_location_ref(self) -> None:
         """Test creating a MarketLocationRef."""
         ml_ref = MarketLocationRef(
-            enterprise_id=42,
             market_area=MarketArea.EU_DE,
             market_location_id=MarketLocationId(
                 value="DE01234567890",
                 type=MarketLocationIdType.MALO_ID,
             ),
         )
-        assert ml_ref.enterprise_id == 42
+        assert ml_ref.enterprise_id == 0
         assert ml_ref.market_area == MarketArea.EU_DE
         assert ml_ref.market_location_id.value == "DE01234567890"
 
@@ -168,7 +167,6 @@ class TestClientMethods:
         setattr(client, "_channel", cast(Any, object()))
 
         market_location_ref = MarketLocationRef(
-            enterprise_id=42,
             market_area=MarketArea.EU_DE,
             market_location_id=MarketLocationId(
                 value="DE01234567890",

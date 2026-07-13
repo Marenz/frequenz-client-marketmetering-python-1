@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Iterable, Self
 
+from frequenz.api.common.v1alpha8.grid import market_location_pb2 as grid_pb
+from frequenz.api.common.v1alpha8.market import market_area_pb2 as market_area_pb
 from frequenz.api.common.v1alpha8.pagination import (
     pagination_params_pb2 as pagination_params_pb,
 )
@@ -29,124 +31,124 @@ class MarketArea(Enum):
     - EURASIA_*: Eurasia
     """
 
-    UNSPECIFIED = pb.MARKET_AREA_UNSPECIFIED
+    UNSPECIFIED = market_area_pb.MARKET_AREA_UNSPECIFIED
     """Unspecified market area."""
 
     # Europe
-    EU_DE = pb.MARKET_AREA_EU_DE
+    EU_DE = market_area_pb.MARKET_AREA_EU_DE
     """Germany (Marktlokation / MaLo)."""
 
-    EU_UK = pb.MARKET_AREA_EU_UK
+    EU_UK = market_area_pb.MARKET_AREA_EU_UK
     """United Kingdom (MPAN)."""
 
-    EU_IT = pb.MARKET_AREA_EU_IT
+    EU_IT = market_area_pb.MARKET_AREA_EU_IT
     """Italy (POD)."""
 
-    EU_FR = pb.MARKET_AREA_EU_FR
+    EU_FR = market_area_pb.MARKET_AREA_EU_FR
     """France."""
 
-    EU_ES = pb.MARKET_AREA_EU_ES
+    EU_ES = market_area_pb.MARKET_AREA_EU_ES
     """Spain (CUPS)."""
 
-    EU_NL = pb.MARKET_AREA_EU_NL
+    EU_NL = market_area_pb.MARKET_AREA_EU_NL
     """Netherlands (EAN)."""
 
-    EU_BE = pb.MARKET_AREA_EU_BE
+    EU_BE = market_area_pb.MARKET_AREA_EU_BE
     """Belgium (EAN)."""
 
-    EU_CH = pb.MARKET_AREA_EU_CH
+    EU_CH = market_area_pb.MARKET_AREA_EU_CH
     """Switzerland."""
 
-    EU_AT = pb.MARKET_AREA_EU_AT
+    EU_AT = market_area_pb.MARKET_AREA_EU_AT
     """Austria."""
 
-    EU_NORDICS = pb.MARKET_AREA_EU_NORDICS
+    EU_NORDICS = market_area_pb.MARKET_AREA_EU_NORDICS
     """Nordic countries (Denmark, Finland, Norway, Sweden)."""
 
     # North America
-    NA_US_ERCOT = pb.MARKET_AREA_NA_US_ERCOT
+    NA_US_ERCOT = market_area_pb.MARKET_AREA_NA_US_ERCOT
     """US - ERCOT region (ESI ID)."""
 
-    NA_US_PJM = pb.MARKET_AREA_NA_US_PJM
+    NA_US_PJM = market_area_pb.MARKET_AREA_NA_US_PJM
     """US - PJM Interconnection."""
 
-    NA_US_ISONE = pb.MARKET_AREA_NA_US_ISONE
+    NA_US_ISONE = market_area_pb.MARKET_AREA_NA_US_ISONE
     """US - ISO New England."""
 
-    NA_US_CAISO = pb.MARKET_AREA_NA_US_CAISO
+    NA_US_CAISO = market_area_pb.MARKET_AREA_NA_US_CAISO
     """US - California ISO."""
 
     # Asia-Pacific
-    AP_JP = pb.MARKET_AREA_AP_JP
+    AP_JP = market_area_pb.MARKET_AREA_AP_JP
     """Japan."""
 
-    AP_CN = pb.MARKET_AREA_AP_CN
+    AP_CN = market_area_pb.MARKET_AREA_AP_CN
     """China."""
 
-    AP_IN = pb.MARKET_AREA_AP_IN
+    AP_IN = market_area_pb.MARKET_AREA_AP_IN
     """India."""
 
-    AP_SG = pb.MARKET_AREA_AP_SG
+    AP_SG = market_area_pb.MARKET_AREA_AP_SG
     """Singapore."""
 
     # Oceania
-    OC_AU = pb.MARKET_AREA_OC_AU
+    OC_AU = market_area_pb.MARKET_AREA_OC_AU
     """Australia (NMI)."""
 
-    OC_NZ = pb.MARKET_AREA_OC_NZ
+    OC_NZ = market_area_pb.MARKET_AREA_OC_NZ
     """New Zealand (ICP)."""
 
     # Eurasia
-    EURASIA_RU = pb.MARKET_AREA_EURASIA_RU
+    EURASIA_RU = market_area_pb.MARKET_AREA_EURASIA_RU
     """Russia."""
 
-    OTHER = pb.MARKET_AREA_OTHER
+    OTHER = market_area_pb.MARKET_AREA_OTHER
     """Other or not yet modelled areas."""
 
 
 class MarketLocationIdType(Enum):
     """Type of external market identifier."""
 
-    UNSPECIFIED = pb.MARKET_LOCATION_ID_TYPE_UNSPECIFIED
+    UNSPECIFIED = grid_pb.MARKET_LOCATION_ID_TYPE_UNSPECIFIED
     """Unspecified identifier type."""
 
-    MALO_ID = pb.MARKET_LOCATION_ID_TYPE_MALO_ID
+    MALO_ID = grid_pb.MARKET_LOCATION_ID_TYPE_MALO_ID
     """Germany – Marktlokations-ID (MaLo-ID)."""
 
-    ZAEHLPUNKT = pb.MARKET_LOCATION_ID_TYPE_ZAEHLPUNKT
+    ZAEHLPUNKT = grid_pb.MARKET_LOCATION_ID_TYPE_ZAEHLPUNKT
     """Austria – Zählpunktbezeichnung."""
 
-    MPAN = pb.MARKET_LOCATION_ID_TYPE_MPAN
+    MPAN = grid_pb.MARKET_LOCATION_ID_TYPE_MPAN
     """United Kingdom – Meter Point Administration Number."""
 
-    POD = pb.MARKET_LOCATION_ID_TYPE_POD
+    POD = grid_pb.MARKET_LOCATION_ID_TYPE_POD
     """Italy – Punto di Prelievo (Point of Delivery)."""
 
-    CUPS = pb.MARKET_LOCATION_ID_TYPE_CUPS
+    CUPS = grid_pb.MARKET_LOCATION_ID_TYPE_CUPS
     """Spain – Código Unificado de Punto de Suministro."""
 
-    PRM = pb.MARKET_LOCATION_ID_TYPE_PRM
+    PRM = grid_pb.MARKET_LOCATION_ID_TYPE_PRM
     """France – Point de Référence et Mesure (PRM)."""
 
-    EAN = pb.MARKET_LOCATION_ID_TYPE_EAN
+    EAN = grid_pb.MARKET_LOCATION_ID_TYPE_EAN
     """European Article Number (used in Netherlands, Belgium, etc.)."""
 
-    GSRN = pb.MARKET_LOCATION_ID_TYPE_GSRN
+    GSRN = grid_pb.MARKET_LOCATION_ID_TYPE_GSRN
     """Nordic countries – GS1 Global Service Relation Number."""
 
-    ESI_ID = pb.MARKET_LOCATION_ID_TYPE_ESI_ID
+    ESI_ID = grid_pb.MARKET_LOCATION_ID_TYPE_ESI_ID
     """United States – Electric Service Identifier (ESI ID)."""
 
-    NMI = pb.MARKET_LOCATION_ID_TYPE_NMI
+    NMI = grid_pb.MARKET_LOCATION_ID_TYPE_NMI
     """Australia – National Metering Identifier."""
 
-    ICP = pb.MARKET_LOCATION_ID_TYPE_ICP
+    ICP = grid_pb.MARKET_LOCATION_ID_TYPE_ICP
     """New Zealand – Installation Control Point."""
 
-    SPN = pb.MARKET_LOCATION_ID_TYPE_SPN
+    SPN = grid_pb.MARKET_LOCATION_ID_TYPE_SPN
     """Japan – Supply Point Number."""
 
-    OTHER = pb.MARKET_LOCATION_ID_TYPE_OTHER
+    OTHER = grid_pb.MARKET_LOCATION_ID_TYPE_OTHER
     """Generic meter identifier for markets not modeled explicitly."""
 
 
@@ -507,7 +509,7 @@ class MarketLocationId:
     """Type of official market identifier."""
 
     @classmethod
-    def from_protobuf(cls, pb_obj: pb.MarketLocationId) -> Self:
+    def from_protobuf(cls, pb_obj: grid_pb.MarketLocationId) -> Self:
         """Create from protobuf message.
 
         Args:
@@ -521,38 +523,38 @@ class MarketLocationId:
             type=MarketLocationIdType(pb_obj.type),
         )
 
-    def to_protobuf(self) -> pb.MarketLocationId:
+    def to_protobuf(self) -> grid_pb.MarketLocationId:
         """Convert to protobuf message.
 
         Returns:
             The protobuf representation.
         """
-        return pb.MarketLocationId(
-            id=pb.MarketLocationIdValue(value=self.value),
+        return grid_pb.MarketLocationId(
+            id=grid_pb.MarketLocationIdValue(value=self.value),
             type=self.type.value,
         )
 
-    def to_id_value_protobuf(self) -> pb.MarketLocationIdValue:
+    def to_id_value_protobuf(self) -> grid_pb.MarketLocationIdValue:
         """Convert to a MarketLocationIdValue protobuf message.
 
         Returns:
             The protobuf representation containing only the value.
         """
-        return pb.MarketLocationIdValue(value=self.value)
+        return grid_pb.MarketLocationIdValue(value=self.value)
 
 
 @dataclass(frozen=True)
 class MarketLocationRef:
-    """Reference to a Market Location within a specific enterprise and market area."""
-
-    enterprise_id: int
-    """Unique enterprise ID for this Market Location."""
+    """Reference to a Market Location within a market area."""
 
     market_area: MarketArea
     """Regulatory jurisdiction in which this Market Location is registered."""
 
     market_location_id: MarketLocationId
     """Market-wide identifier (MaLo, MPAN, ESI-ID, NMI, ...)."""
+
+    enterprise_id: int = field(default=0, kw_only=True)
+    """Owning enterprise ID, when returned by the service."""
 
     @classmethod
     def from_protobuf(cls, pb_obj: pb.MarketLocationRef) -> Self:
@@ -566,20 +568,19 @@ class MarketLocationRef:
         """
         return cls(
             enterprise_id=pb_obj.enterprise_id,
-            market_area=MarketArea(pb_obj.market_area),
+            market_area=MarketArea(pb_obj.market_location.market_area),
             market_location_id=MarketLocationId.from_protobuf(
-                pb_obj.market_location_id
+                pb_obj.market_location.market_location_id
             ),
         )
 
-    def to_protobuf(self) -> pb.MarketLocationRef:
+    def to_protobuf(self) -> grid_pb.MarketLocationRef:
         """Convert to protobuf message.
 
         Returns:
-            The protobuf representation.
+            The enterprise-less protobuf selector used in requests.
         """
-        return pb.MarketLocationRef(
-            enterprise_id=self.enterprise_id,
+        return grid_pb.MarketLocationRef(
             market_area=self.market_area.value,
             market_location_id=self.market_location_id.to_protobuf(),
         )
@@ -602,7 +603,7 @@ class MarketLocation:
     """Additional arbitrary metadata."""
 
     @classmethod
-    def from_protobuf(cls, pb_obj: pb.MarketLocation) -> Self:
+    def from_protobuf(cls, pb_obj: pb.MarketLocationMetadata) -> Self:
         """Create from protobuf message.
 
         Args:
@@ -620,7 +621,7 @@ class MarketLocation:
             payload=dict(pb_obj.payload.items()),
         )
 
-    def to_protobuf(self) -> pb.MarketLocation:
+    def to_protobuf(self) -> pb.MarketLocationMetadata:
         """Convert to protobuf message.
 
         Returns:
@@ -629,7 +630,7 @@ class MarketLocation:
         pb_struct = struct_pb2.Struct()
         pb_struct.update(self.payload)
 
-        return pb.MarketLocation(
+        return pb.MarketLocationMetadata(
             display_name=self.display_name,
             supported_directions=[d.value for d in self.supported_directions],
             time_resolution=self.time_resolution.value,
@@ -791,9 +792,7 @@ class MarketLocationEntry:
         return self.market_location_detail.market_location
 
     @classmethod
-    def from_protobuf(
-        cls, pb_obj: pb.ListMarketLocationsResponse.MarketLocationEntry
-    ) -> Self:
+    def from_protobuf(cls, pb_obj: pb.MarketLocationDetail) -> Self:
         """Create from protobuf message.
 
         Args:
@@ -803,10 +802,8 @@ class MarketLocationEntry:
             A new MarketLocationEntry instance.
         """
         return cls(
-            enterprise_id=pb_obj.enterprise_id,
-            market_location_detail=MarketLocationDetail.from_protobuf(
-                pb_obj.market_location
-            ),
+            enterprise_id=pb_obj.market_location_ref.enterprise_id,
+            market_location_detail=MarketLocationDetail.from_protobuf(pb_obj),
         )
 
 
@@ -879,7 +876,7 @@ class MarketLocationsFilter:
             The protobuf representation.
         """
         return pb.MarketLocationsFilter(
-            market_location_id_filters=[
+            market_location_id_values=[
                 ml_id.to_id_value_protobuf()
                 for ml_id in self.market_location_id_filters
             ],

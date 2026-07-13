@@ -73,7 +73,6 @@ class MarketMeteringApiClient(
         )
 
         market_location = MarketLocationRef(
-            enterprise_id=42,
             market_area=MarketArea.EU_DE,
             market_location_id=MarketLocationId(
                 value="DE01234567890",
@@ -199,14 +198,14 @@ class MarketMeteringApiClient(
             The created Market Location with server-assigned metadata.
         """
         request = pb.CreateMarketLocationRequest(
-            market_location_ref=market_location_ref.to_protobuf(),
-            market_location=market_location.to_protobuf(),
+            market_location=market_location_ref.to_protobuf(),
+            market_location_metadata=market_location.to_protobuf(),
         )
         response = await self.stub.CreateMarketLocation(  # type: ignore[misc]
             request,
             timeout=self._call_timeout_seconds,
         )
-        return MarketLocationDetail.from_protobuf(response.market_location)
+        return MarketLocationDetail.from_protobuf(response.market_location_detail)
 
     async def update_market_location(
         self,
@@ -230,7 +229,7 @@ class MarketMeteringApiClient(
         """
         update_pb, update_mask_pb = update.to_protobuf()
         request = pb.UpdateMarketLocationRequest(
-            market_location_ref=market_location_ref.to_protobuf(),
+            market_location=market_location_ref.to_protobuf(),
             expected_revision=expected_revision,
             update_fields=update_pb,
             update_mask=update_mask_pb,
@@ -255,7 +254,7 @@ class MarketMeteringApiClient(
             A list of operation results, one per requested location.
         """
         request = pb.ActivateMarketLocationRequest(
-            market_location_refs=[ref.to_protobuf() for ref in market_location_refs],
+            market_locations=[ref.to_protobuf() for ref in market_location_refs],
         )
         response = await self.stub.ActivateMarketLocation(  # type: ignore[misc]
             request,
@@ -279,7 +278,7 @@ class MarketMeteringApiClient(
             A list of operation results, one per requested location.
         """
         request = pb.DeactivateMarketLocationRequest(
-            market_location_refs=[ref.to_protobuf() for ref in market_location_refs],
+            market_locations=[ref.to_protobuf() for ref in market_location_refs],
         )
         response = await self.stub.DeactivateMarketLocation(  # type: ignore[misc]
             request,
@@ -292,7 +291,6 @@ class MarketMeteringApiClient(
     async def list_market_locations(
         self,
         *,
-        enterprise_id: int,
         filters: MarketLocationsFilter | None = None,
         revision_selection: RevisionSelection | None = None,
         pagination_params: PaginationParams | None = None,
@@ -300,7 +298,6 @@ class MarketMeteringApiClient(
         """List Market Locations.
 
         Args:
-            enterprise_id: Filter by enterprise ID.
             filters: Optional filters for the query.
             revision_selection: Optional revision selection criteria.
             pagination_params: Optional pagination parameters.
@@ -310,7 +307,6 @@ class MarketMeteringApiClient(
             pagination parameters for the next page.
         """
         request = pb.ListMarketLocationsRequest(
-            enterprise_id=enterprise_id,
             filter=filters.to_protobuf() if filters else None,
             revision_selection=(
                 revision_selection.to_protobuf() if revision_selection else None
@@ -363,7 +359,7 @@ class MarketMeteringApiClient(
             async for ml_ref, series in samples_stream:
                 for sample in series.samples:
                     yield pb.UpsertMarketLocationSamplesStreamRequest(
-                        market_location_ref=ml_ref.to_protobuf(),
+                        market_location=ml_ref.to_protobuf(),
                         direction=series.direction.value,
                         metric_type=series.metric_type.value,
                         metric_unit=series.metric_unit.value,
@@ -428,7 +424,7 @@ class MarketMeteringApiClient(
         """
         # Build the request
         request = pb.ReceiveMarketLocationSamplesStreamRequest(
-            market_location_refs=[ml.to_protobuf() for ml in market_locations],
+            market_locations=[ml.to_protobuf() for ml in market_locations],
             directions=[d.value for d in directions],
             metric_types=[mt.value for mt in metric_types],
         )
@@ -548,7 +544,7 @@ class MarketMeteringApiClient(
         if broadcaster is None:
             # Build the request
             request = pb.ReceiveMarketLocationSamplesStreamRequest(
-                market_location_refs=[ml.to_protobuf() for ml in market_locations],
+                market_locations=[ml.to_protobuf() for ml in market_locations],
                 directions=[d.value for d in directions],
                 metric_types=[mt.value for mt in metric_types],
             )

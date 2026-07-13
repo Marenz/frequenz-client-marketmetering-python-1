@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from typing import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock
 
+from frequenz.api.common.v1alpha8.grid import market_location_pb2 as grid_pb
+from frequenz.api.common.v1alpha8.market import market_area_pb2 as market_area_pb
 from frequenz.api.common.v1alpha8.pagination import (
     pagination_info_pb2 as pagination_info_pb,
 )
@@ -80,6 +82,22 @@ def _make_timestamp(dt: datetime) -> Timestamp:
     return ts
 
 
+def _make_ref_pb(
+    enterprise_id: int = 42, malo_id: str = "DE0000000001"
+) -> pb.MarketLocationRef:
+    """Build a MarketLocationRef protobuf for mock responses."""
+    return pb.MarketLocationRef(
+        enterprise_id=enterprise_id,
+        market_location=grid_pb.MarketLocationRef(
+            market_area=market_area_pb.MARKET_AREA_EU_DE,
+            market_location_id=grid_pb.MarketLocationId(
+                id=grid_pb.MarketLocationIdValue(value=malo_id),
+                type=grid_pb.MARKET_LOCATION_ID_TYPE_MALO_ID,
+            ),
+        ),
+    )
+
+
 def _make_detail_pb(
     enterprise_id: int = 42,
     malo_id: str = "DE0000000001",
@@ -89,15 +107,8 @@ def _make_detail_pb(
 ) -> pb.MarketLocationDetail:
     """Build a MarketLocationDetail protobuf for mock responses."""
     return pb.MarketLocationDetail(
-        market_location_ref=pb.MarketLocationRef(
-            enterprise_id=enterprise_id,
-            market_area=pb.MARKET_AREA_EU_DE,
-            market_location_id=pb.MarketLocationId(
-                id=pb.MarketLocationIdValue(value=malo_id),
-                type=pb.MARKET_LOCATION_ID_TYPE_MALO_ID,
-            ),
-        ),
-        market_location=pb.MarketLocation(
+        market_location_ref=_make_ref_pb(enterprise_id=enterprise_id, malo_id=malo_id),
+        market_location=pb.MarketLocationMetadata(
             display_name=display_name,
             supported_directions=[pb.ENERGY_FLOW_DIRECTION_IMPORT],
             time_resolution=pb.TIME_RESOLUTION_15_MIN,
@@ -117,7 +128,9 @@ class TestCreateMarketLocation:
         client = _make_client()
         detail_pb = _make_detail_pb()
         client.stub.CreateMarketLocation = AsyncMock(
-            return_value=pb.CreateMarketLocationResponse(market_location=detail_pb)
+            return_value=pb.CreateMarketLocationResponse(
+                market_location_detail=detail_pb
+            )
         )
 
         ml_ref = _make_ref()
@@ -131,12 +144,14 @@ class TestCreateMarketLocation:
         client.stub.CreateMarketLocation.assert_called_once()
         request = client.stub.CreateMarketLocation.call_args[0][0]
         assert isinstance(request, pb.CreateMarketLocationRequest)
-        assert request.market_location_ref.enterprise_id == 42
-        assert request.market_location_ref.market_location_id.id.value == "DE0000000001"
-        assert request.market_location_ref.market_area == pb.MARKET_AREA_EU_DE
-        assert request.market_location.display_name == "Test Location"
-        assert request.market_location.time_resolution == pb.TIME_RESOLUTION_15_MIN
-        assert list(request.market_location.supported_directions) == [
+        assert request.market_location.market_location_id.id.value == "DE0000000001"
+        assert request.market_location.market_area == market_area_pb.MARKET_AREA_EU_DE
+        assert request.market_location_metadata.display_name == "Test Location"
+        assert (
+            request.market_location_metadata.time_resolution
+            == pb.TIME_RESOLUTION_15_MIN
+        )
+        assert list(request.market_location_metadata.supported_directions) == [
             pb.ENERGY_FLOW_DIRECTION_IMPORT
         ]
         assert result.revision == 1
@@ -147,7 +162,9 @@ class TestCreateMarketLocation:
         client = _make_client()
         detail_pb = _make_detail_pb(display_name="With Payload")
         client.stub.CreateMarketLocation = AsyncMock(
-            return_value=pb.CreateMarketLocationResponse(market_location=detail_pb)
+            return_value=pb.CreateMarketLocationResponse(
+                market_location_detail=detail_pb
+            )
         )
 
         ml_ref = _make_ref()
@@ -164,8 +181,8 @@ class TestCreateMarketLocation:
         )
 
         request = client.stub.CreateMarketLocation.call_args[0][0]
-        assert request.market_location.payload["key"] == "value"
-        assert request.market_location.payload["num"] == 42
+        assert request.market_location_metadata.payload["key"] == "value"
+        assert request.market_location_metadata.payload["num"] == 42
 
 
 class TestUpdateMarketLocation:
@@ -330,36 +347,24 @@ class TestListMarketLocations:
         client = _make_client()
 
         # Build a mock response with one entry.
-        ml_pb = pb.MarketLocation(
+        ml_pb = pb.MarketLocationMetadata(
             display_name="Listed",
             supported_directions=[pb.ENERGY_FLOW_DIRECTION_IMPORT],
             time_resolution=pb.TIME_RESOLUTION_15_MIN,
         )
-        ref_pb = pb.MarketLocationRef(
-            enterprise_id=42,
-            market_area=pb.MARKET_AREA_EU_DE,
-            market_location_id=pb.MarketLocationId(
-                id=pb.MarketLocationIdValue(value="DE0000000001"),
-                type=pb.MARKET_LOCATION_ID_TYPE_MALO_ID,
-            ),
-        )
         detail_pb = pb.MarketLocationDetail(
-            market_location_ref=ref_pb,
+            market_location_ref=_make_ref_pb(),
             market_location=ml_pb,
             revision=1,
             is_active=True,
             create_time=_make_timestamp(datetime(2025, 1, 1, tzinfo=timezone.utc)),
             update_time=_make_timestamp(datetime(2025, 1, 1, tzinfo=timezone.utc)),
         )
-        entry_pb = pb.ListMarketLocationsResponse.MarketLocationEntry(
-            enterprise_id=42,
-            market_location=detail_pb,
-        )
-        response = pb.ListMarketLocationsResponse(market_locations=[entry_pb])
+        response = pb.ListMarketLocationsResponse(market_locations=[detail_pb])
 
         client.stub.ListMarketLocations = AsyncMock(return_value=response)
 
-        entries, next_page = await client.list_market_locations(enterprise_id=42)
+        entries, next_page = await client.list_market_locations()
 
         assert len(entries) == 1
         assert entries[0].enterprise_id == 42
@@ -367,16 +372,16 @@ class TestListMarketLocations:
         assert entries[0].market_location_ref.market_area == MarketArea.EU_DE
         assert next_page is None
 
-    async def test_sends_enterprise_id(self) -> None:
-        """Test that enterprise_id is sent in the request."""
+    async def test_omits_enterprise_id(self) -> None:
+        """Test that enterprise_id is not sent in the request."""
         client = _make_client()
         response = pb.ListMarketLocationsResponse()
         client.stub.ListMarketLocations = AsyncMock(return_value=response)
 
-        await client.list_market_locations(enterprise_id=99)
+        await client.list_market_locations()
 
         request = client.stub.ListMarketLocations.call_args[0][0]
-        assert request.enterprise_id == 99
+        assert "enterprise_id" not in request.DESCRIPTOR.fields_by_name
 
     async def test_pagination(self) -> None:
         """Test that pagination info is returned."""
@@ -386,7 +391,7 @@ class TestListMarketLocations:
         response = pb.ListMarketLocationsResponse(pagination_info=pagination_info)
         client.stub.ListMarketLocations = AsyncMock(return_value=response)
 
-        _, next_page = await client.list_market_locations(enterprise_id=1)
+        _, next_page = await client.list_market_locations()
 
         assert next_page is not None
         assert next_page.page_token == "token123"
@@ -403,7 +408,7 @@ class TestListMarketLocations:
         response = pb.ListMarketLocationsResponse(pagination_info=pagination_info)
         client.stub.ListMarketLocations = AsyncMock(return_value=response)
 
-        _, next_page = await client.list_market_locations(enterprise_id=1)
+        _, next_page = await client.list_market_locations()
 
         assert next_page is None
 
@@ -419,12 +424,12 @@ class TestListMarketLocations:
             ],
             activation_filter=ActivationFilter.ALL,
         )
-        await client.list_market_locations(enterprise_id=1, filters=filters)
+        await client.list_market_locations(filters=filters)
 
         request = client.stub.ListMarketLocations.call_args[0][0]
         assert request.filter.activation_filter == pb.ACTIVATION_FILTER_ALL
-        assert len(request.filter.market_location_id_filters) == 1
-        assert request.filter.market_location_id_filters[0].value == "DE123"
+        assert len(request.filter.market_location_id_values) == 1
+        assert request.filter.market_location_id_values[0].value == "DE123"
 
     async def test_sends_page_size(self) -> None:
         """Test that page_size is sent in the request.
@@ -436,7 +441,7 @@ class TestListMarketLocations:
         client.stub.ListMarketLocations = AsyncMock(return_value=response)
 
         params = PaginationParams(page_size=10)
-        await client.list_market_locations(enterprise_id=1, pagination_params=params)
+        await client.list_market_locations(pagination_params=params)
 
         request = client.stub.ListMarketLocations.call_args[0][0]
         assert request.pagination_params.page_size == 10
@@ -451,7 +456,7 @@ class TestListMarketLocations:
         client.stub.ListMarketLocations = AsyncMock(return_value=response)
 
         params = PaginationParams(page_token="next-page-token")
-        await client.list_market_locations(enterprise_id=1, pagination_params=params)
+        await client.list_market_locations(pagination_params=params)
 
         request = client.stub.ListMarketLocations.call_args[0][0]
         assert request.pagination_params.page_token == "next-page-token"
@@ -461,17 +466,10 @@ class TestActivateMarketLocations:
     """Tests for activate_market_locations."""
 
     async def test_sends_correct_request(self) -> None:
-        """Test that activate sends the refs in market_location_refs."""
+        """Test that activate sends enterprise-less selectors."""
         client = _make_client()
 
-        ml_ref_pb = pb.MarketLocationRef(
-            enterprise_id=7,
-            market_area=pb.MARKET_AREA_EU_DE,
-            market_location_id=pb.MarketLocationId(
-                id=pb.MarketLocationIdValue(value="DE_ACT_001"),
-                type=pb.MARKET_LOCATION_ID_TYPE_MALO_ID,
-            ),
-        )
+        ml_ref_pb = _make_ref_pb(enterprise_id=7, malo_id="DE_ACT_001")
         result_pb = pb.MarketLocationOperationResult(
             market_location_ref=ml_ref_pb,
             revision=2,
@@ -486,11 +484,8 @@ class TestActivateMarketLocations:
 
         request = client.stub.ActivateMarketLocation.call_args[0][0]
         assert isinstance(request, pb.ActivateMarketLocationRequest)
-        assert len(request.market_location_refs) == 1
-        assert request.market_location_refs[0].enterprise_id == 7
-        assert (
-            request.market_location_refs[0].market_location_id.id.value == "DE_ACT_001"
-        )
+        assert len(request.market_locations) == 1
+        assert request.market_locations[0].market_location_id.id.value == "DE_ACT_001"
         assert len(results) == 1
         assert results[0].error is None
         assert results[0].revision == 2
@@ -500,17 +495,10 @@ class TestDeactivateMarketLocations:
     """Tests for deactivate_market_locations."""
 
     async def test_sends_correct_request(self) -> None:
-        """Test that deactivate sends the refs in market_location_refs."""
+        """Test that deactivate sends enterprise-less selectors."""
         client = _make_client()
 
-        ml_ref_pb = pb.MarketLocationRef(
-            enterprise_id=8,
-            market_area=pb.MARKET_AREA_EU_DE,
-            market_location_id=pb.MarketLocationId(
-                id=pb.MarketLocationIdValue(value="DE_DEACT_001"),
-                type=pb.MARKET_LOCATION_ID_TYPE_MALO_ID,
-            ),
-        )
+        ml_ref_pb = _make_ref_pb(enterprise_id=8, malo_id="DE_DEACT_001")
         result_pb = pb.MarketLocationOperationResult(
             market_location_ref=ml_ref_pb,
             revision=3,
@@ -527,8 +515,8 @@ class TestDeactivateMarketLocations:
 
         request = client.stub.DeactivateMarketLocation.call_args[0][0]
         assert isinstance(request, pb.DeactivateMarketLocationRequest)
-        assert len(request.market_location_refs) == 1
-        assert request.market_location_refs[0].enterprise_id == 8
+        assert len(request.market_locations) == 1
+        assert request.market_locations[0].market_location_id.id.value == "DE_DEACT_001"
         assert len(results) == 1
         assert results[0].error is None
 
@@ -540,14 +528,7 @@ class TestStreamSamples:
         """Test that stream_samples yields MarketLocationSeries."""
         client = _make_client()
 
-        ml_ref_pb = pb.MarketLocationRef(
-            enterprise_id=42,
-            market_area=pb.MARKET_AREA_EU_DE,
-            market_location_id=pb.MarketLocationId(
-                id=pb.MarketLocationIdValue(value="DE001"),
-                type=pb.MARKET_LOCATION_ID_TYPE_MALO_ID,
-            ),
-        )
+        ml_ref_pb = _make_ref_pb(malo_id="DE001")
         sample_time = _make_timestamp(datetime(2025, 1, 1, tzinfo=timezone.utc))
         sample_pb = pb.MarketLocationSampleDetail(
             sample_time=sample_time,
@@ -631,14 +612,7 @@ class TestUpsertSamples:
         """Test that upsert_samples yields UpsertResult."""
         client = _make_client()
 
-        ml_ref_pb = pb.MarketLocationRef(
-            enterprise_id=42,
-            market_area=pb.MARKET_AREA_EU_DE,
-            market_location_id=pb.MarketLocationId(
-                id=pb.MarketLocationIdValue(value="DE001"),
-                type=pb.MARKET_LOCATION_ID_TYPE_MALO_ID,
-            ),
-        )
+        ml_ref_pb = _make_ref_pb(malo_id="DE001")
         sample_time = _make_timestamp(datetime(2025, 1, 1, tzinfo=timezone.utc))
         sample_pb = pb.MarketLocationSample(
             sample_time=sample_time,

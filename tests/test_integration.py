@@ -362,7 +362,7 @@ class TestListMarketLocations:
             market_location=ml,
         )
 
-        entries, _ = await client.list_market_locations(enterprise_id=3)
+        entries, _ = await client.list_market_locations()
         assert len(entries) >= 1
 
 
