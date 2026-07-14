@@ -20,7 +20,7 @@ Initial release of the Frequenz Market Metering API client for Python.
 - `revision_strategy` parameter on `stream_samples()` and `stream()`.
 - CLI tool (`marketmetering-cli`) with commands for managing market locations:
   - `create`: Create a new market location with name, market area, directions, and resolution
-  - `list`: List market locations for an enterprise with activation filtering and pagination
+  - `list`: List market locations with activation filtering and pagination
   - `activate` / `deactivate`: Activate or deactivate one or more market locations
   - `update`: Update a market location (display name, directions, resolution) with optimistic concurrency
   - `stream`: Stream metering samples from market locations
@@ -49,6 +49,7 @@ Initial release of the Frequenz Market Metering API client for Python.
 - `update_market_location()` now returns `MarketLocationDetail` instead of `None`.
 - `MarketLocationEntry` now wraps `MarketLocationDetail` via `market_location_detail` field (convenience properties `market_location` and `market_location_ref` preserved).
 - `UpsertResult` has a new required field `ingest_time`.
+- Request-scoped enterprise IDs were removed. The service derives the enterprise from the authenticated caller, and `MarketLocationRef.enterprise_id` is now only populated for server-returned references.
 
 ## Bug Fixes
 

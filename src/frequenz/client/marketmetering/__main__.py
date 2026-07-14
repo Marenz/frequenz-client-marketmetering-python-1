@@ -234,43 +234,37 @@ async def cli(
 def parse_market_location(value: str) -> MarketLocationRef:
     """Parse a market location string.
 
-    Format: enterprise_id:market_area:location_id:type
-    Example: 42:EU_DE:DE01234567890:MALO_ID
+    Format: market_area:location_id:type
+    Example: EU_DE:DE01234567890:MALO_ID
     """
     parts = value.split(":")
-    if len(parts) != 4:
+    if len(parts) != 3:
         raise click.BadParameter(
             f"Invalid market location format: {value}. "
-            "Expected format: enterprise_id:market_area:location_id:type"
+            "Expected format: market_area:location_id:type"
         )
 
     try:
-        enterprise_id = int(parts[0])
-    except ValueError as exc:
-        raise click.BadParameter(f"Invalid enterprise_id: {parts[0]}") from exc
-
-    try:
-        market_area = MarketArea[parts[1].upper()]
+        market_area = MarketArea[parts[0].upper()]
     except KeyError as exc:
         valid_areas = ", ".join(a.name for a in MarketArea if a.name != "UNSPECIFIED")
         raise click.BadParameter(
-            f"Invalid market area: {parts[1]}. Valid areas: {valid_areas}"
+            f"Invalid market area: {parts[0]}. Valid areas: {valid_areas}"
         ) from exc
 
-    location_id = parts[2]
+    location_id = parts[1]
 
     try:
-        id_type = MarketLocationIdType[parts[3].upper()]
+        id_type = MarketLocationIdType[parts[2].upper()]
     except KeyError as exc:
         valid_types = ", ".join(
             t.name for t in MarketLocationIdType if t.name != "UNSPECIFIED"
         )
         raise click.BadParameter(
-            f"Invalid location type: {parts[3]}. Valid types: {valid_types}"
+            f"Invalid location type: {parts[2]}. Valid types: {valid_types}"
         ) from exc
 
     return MarketLocationRef(
-        enterprise_id=enterprise_id,
         market_area=market_area,
         market_location_id=MarketLocationId(value=location_id, type=id_type),
     )
@@ -344,10 +338,10 @@ async def stream_cmd(
 ) -> None:
     """Stream metering samples from Market Locations.
 
-    MARKET_LOCATIONS are specified as: enterprise_id:market_area:location_id:type
+    MARKET_LOCATIONS are specified as: market_area:location_id:type
 
     Example:
-        42:EU_DE:DE01234567890:MALO_ID
+        EU_DE:DE01234567890:MALO_ID
 
     Valid types: MALO_ID, MPAN, ESI_ID, NMI, OTHER
 
@@ -430,10 +424,10 @@ async def create_cmd(
 ) -> None:
     """Create a new Market Location.
 
-    MARKET_LOCATION is specified as: enterprise_id:market_area:location_id:type
+    MARKET_LOCATION is specified as: market_area:location_id:type
 
     Example:
-        create 42:EU_DE:50601159037:MALO_ID --name "My Location" -d IMPORT
+        create EU_DE:50601159037:MALO_ID --name "My Location" -d IMPORT
 
     Args:
         ctx: Click context with client and options.
@@ -462,7 +456,6 @@ async def create_cmd(
 
 @cli.command("list")
 @click.pass_context
-@click.argument("enterprise-id", required=True, type=int)
 @click.option(
     "--activation",
     type=click.Choice([a.name for a in ActivationFilter if a.name != "UNSPECIFIED"]),
@@ -477,20 +470,18 @@ async def create_cmd(
 )
 async def list_cmd(
     ctx: click.Context,
-    enterprise_id: int,
     activation: str,
     all_pages: bool,
 ) -> None:
-    """List Market Locations for an enterprise.
+    """List Market Locations for the authenticated enterprise.
 
     Example:
-        list 42
+        list
 
-        list 42 --activation ALL
+        list --activation ALL
 
     Args:
         ctx: Click context with client and options.
-        enterprise_id: Enterprise ID to list locations for.
         activation: Activation status filter.
         all_pages: Whether to fetch all pages.
     """
@@ -505,7 +496,6 @@ async def list_cmd(
     next_page = None
     while True:
         entries, next_page = await client.list_market_locations(
-            enterprise_id=enterprise_id,
             filters=filters,
             pagination_params=next_page,
         )
@@ -533,10 +523,10 @@ async def activate_cmd(
 ) -> None:
     """Activate one or more Market Locations.
 
-    MARKET_LOCATIONS are specified as: enterprise_id:market_area:location_id:type
+    MARKET_LOCATIONS are specified as: market_area:location_id:type
 
     Example:
-        activate 42:EU_DE:50601159037:MALO_ID
+        activate EU_DE:50601159037:MALO_ID
 
     Args:
         ctx: Click context with client and options.
@@ -566,10 +556,10 @@ async def deactivate_cmd(
 ) -> None:
     """Deactivate one or more Market Locations.
 
-    MARKET_LOCATIONS are specified as: enterprise_id:market_area:location_id:type
+    MARKET_LOCATIONS are specified as: market_area:location_id:type
 
     Example:
-        deactivate 42:EU_DE:50601159037:MALO_ID
+        deactivate EU_DE:50601159037:MALO_ID
 
     Args:
         ctx: Click context with client and options.
@@ -622,7 +612,7 @@ async def update_cmd(
     Requires the current revision number (use 'list' to find it).
 
     Example:
-        update 42:EU_DE:50601159037:MALO_ID --revision 3 --name "New Name"
+        update EU_DE:50601159037:MALO_ID --revision 3 --name "New Name"
 
     Args:
         ctx: Click context with client and options.

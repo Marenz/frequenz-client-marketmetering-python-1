@@ -55,7 +55,6 @@ client = MarketMeteringApiClient(
 
 # Define a Market Location (e.g., German MaLo)
 market_location = MarketLocationRef(
-    enterprise_id=42,
     market_area=MarketArea.EU_DE,
     market_location_id=MarketLocationId(
         value="DE01234567890",
@@ -82,10 +81,10 @@ export MARKETMETERING_API_URL="grpc://marketmetering.example.com"
 export MARKETMETERING_API_AUTH_KEY="your-api-key"
 
 # Stream samples from a German Market Location
-marketmetering-cli stream 42:EU_DE:DE01234567890:MALO_ID
+marketmetering-cli stream EU_DE:DE01234567890:MALO_ID
 
 # Stream with specific options
-marketmetering-cli stream 42:EU_DE:DE01234567890:MALO_ID \
+marketmetering-cli stream EU_DE:DE01234567890:MALO_ID \
     --direction IMPORT \
     --metric ACTIVE_ENERGY \
     --start-time "2025-01-01T00:00:00" \

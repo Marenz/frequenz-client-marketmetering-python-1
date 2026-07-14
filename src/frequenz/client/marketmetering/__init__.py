@@ -27,7 +27,6 @@ Example:
     )
 
     market_location = MarketLocationRef(
-        enterprise_id=42,
         market_area=MarketArea.EU_DE,
         market_location_id=MarketLocationId(
             value="DE01234567890",
