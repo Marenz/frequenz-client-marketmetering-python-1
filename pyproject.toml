@@ -205,4 +205,5 @@ module = ["mkdocs_macros.*"]
 ignore_missing_imports = true
 
 [tool.setuptools_scm]
+parentdir_prefix_version = "frequenz_client_marketmetering-"
 version_scheme = "post-release"
